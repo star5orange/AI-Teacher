@@ -22,15 +22,9 @@ uploads_pending/
 Java综合测试.html
 第2章_知识清单.html
 
-# 数据目录
-data/
-cache/
-
-# 缓存
-cache/courses/*.json
-
-# 数据库
-data/tokens.db
+# 数据目录（仅根目录）
+/data/
+/cache/
 
 # IDE
 .idea/
