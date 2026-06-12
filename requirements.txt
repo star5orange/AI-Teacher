@@ -1,0 +1,22 @@
+# AI 家教 - Python 依赖
+
+# 命令行
+click>=8.0
+
+# LLM API
+openai>=1.0
+
+# HTML 模板
+jinja2>=3.0
+
+# 资料解析
+python-pptx>=0.6
+PyMuPDF>=1.24
+paddleocr>=2.9
+paddlepaddle>=3.0
+
+# OSS 部署
+oss2>=2.18
+
+# 环境变量
+python-dotenv>=1.0

@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{{ school }} · {{ course }}{% if textbook %}（{{ textbook }}）{% endif %} · AI刷题</title>
+<script>
+// MathJax 配置 + 离线 Fallback
+window.MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\(', '\)']],
+    displayMath: [['$$', '$$'], ['\[', '\]']]
+  },
+  typesetPromise: function() { return Promise.resolve(); }
+};
+
+// 异步加载真实 MathJax（不阻塞页面初始化）
+(function() {
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js';
+  script.onload = function() {
+    // CDN 加载成功 → 重新渲染公式
+    if (MathJax.typesetPromise) {
+      MathJax.typesetPromise().catch(function() {});
+    }
+  };
+  // CDN 加载失败 → 保持 stub，公式以原始 LaTeX 显示
+  document.head.appendChild(script);
+})();
+</script>
+<style>
+/* === AI 家教 Shared Styles === */
+/* Paper-like warm background, based on ExamPass design */
+
+:root {
+  --paper: #eaf2fb;
+  --paper-dark: #dce5f2;
+  --ink: #2c2c2c;
+  --ink-light: #555;
+  --accent: #2563eb;
+  --accent-hover: #1d4ed8;
+  --divider: #c8d6e5;
+  --card-bg: #f5f9fd;
+  --card-border: #d4dfea;
+  --correct: #22c55e;
+  --correct-bg: #f0fdf4;
+  --wrong: #ef4444;
+  --wrong-bg: #fef2f2;
+  --tag-bg: #e0ecfa;
+  --tag-text: #1e40af;
+  --radius: 6px;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  font-family: "Microsoft YaHei", "Noto Sans SC", "SimSun", sans-serif;
+  font-size: 20px; line-height: 1.75; color: var(--ink);
+  max-width: 860px; margin: auto; padding: 12px 16px 60px;
+  background: var(--paper);
+}
+
+/* ── Header ── */
+#app-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 0; flex-wrap: wrap; gap: 4px;
+}
+.header-brand { font-size: 1.1em; font-weight: 700; color: #1a1a2e; }
+.header-user { font-size: 0.78em; color: #999; }
+.header-divider { border: none; border-top: 2px solid var(--divider); margin: 4px 0 12px 0; }
+.font-btn {
+  padding: 2px 8px; border: 1px solid var(--card-border); border-radius: 4px;
+  background: var(--card-bg); cursor: pointer; font-size: 0.75em; font-weight: 700;
+  color: var(--ink-light); transition: all 0.12s;
+}
+.font-btn:hover { background: var(--paper-dark); color: var(--ink); }
+
+/* ── Source Panel ── */
+.source-panel {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px;
+  font-size: 0.85em;
+}
+.source-panel summary { cursor: pointer; font-weight: 700; color: var(--ink-light); }
+.source-panel .source-stats { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px; }
+.source-panel .source-tag {
+  display: inline-block; padding: 1px 8px; border-radius: 3px; font-size: 0.82em;
+}
+.source-user  { background: #dbeafe; color: #1e40af; }
+.source-textbook { background: #d0e0f5; color: #1e40af; }
+.source-generic { background: #fee2e2; color: #991b1b; }
+
+/* ── Navigation Tabs ── */
+nav.tabs {
+  display: flex; gap: 4px; margin-bottom: 14px; border-bottom: 2px solid var(--divider);
+  flex-wrap: wrap;
+}
+nav.tabs button {
+  padding: 6px 16px; border: none; background: transparent;
+  cursor: pointer; font-size: 0.95em; font-weight: 600;
+  color: var(--ink-light); border-bottom: 2px solid transparent;
+  margin-bottom: -2px; transition: all 0.15s;
+}
+nav.tabs button:hover { color: var(--ink); }
+nav.tabs button.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+
+/* ── Knowledge Tree ── */
+.knowledge-tree { padding: 4px 0; }
+.kp-chapter { font-size: 1.05em; font-weight: 700; margin: 12px 0 4px; }
+.kp-section {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 8px; margin: 2px 0; border-radius: 4px; cursor: pointer;
+  font-size: 0.95em; transition: background 0.1s;
+}
+.kp-section:hover { background: #dce5f2; }
+.kp-section .kp-name { flex: 1; }
+.kp-section .kp-badge { font-size: 0.75em; padding: 1px 6px; border-radius: 3px; font-weight: 600; }
+
+.badge-must   { background: #fee2e2; color: #991b1b; }
+.badge-high   { background: #d0e0f5; color: #1e40af; }
+.badge-normal { background: #dbeafe; color: #1e40af; }
+.badge-info   { background: #f0fdf4; color: #166534; }
+
+.kp-source {
+  font-size: 0.7em; color: #999; margin-left: 4px;
+}
+
+/* ── Quiz ── */
+.quiz-header {
+  display: flex; justify-content: space-between; align-items: center;
+  gap: 12px; margin-bottom: 12px; flex-wrap: wrap;
+}
+.quiz-header select { padding: 4px 8px; border: 1px solid var(--card-border); border-radius: 4px; font-size: 0.9em; }
+
+.q-card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 12px 14px; margin: 10px 0;
+  transition: all 0.15s;
+}
+.q-card.correct { border-left: 3px solid var(--correct); background: #eef9f0; }
+.q-card.wrong   { border-left: 3px solid var(--wrong); background: #fdf2f2; }
+.q-card.partial { border-left: 3px solid #93c5fd; }
+
+.q-num { font-weight: 700; font-size: 0.95em; margin-bottom: 4px; }
+.q-text { margin-bottom: 8px; font-size: 0.96em; }
+
+.option {
+  display: block; padding: 4px 10px; margin: 3px 0;
+  border: 1px solid var(--card-border); border-radius: 4px;
+  cursor: pointer; transition: all 0.12s; font-size: 0.92em;
+  background: #f5f9fd;
+}
+.option:hover { background: #dce5f2; }
+.option input { margin-right: 6px; }
+.option.selected { border-color: var(--accent); background: #e0ecfa; }
+.option.correct-answer { border-color: var(--correct); background: var(--correct-bg); }
+.option.wrong-answer { border-color: var(--wrong); background: var(--wrong-bg); }
+
+.q-textarea {
+  width: 100%; min-height: 56px; border: 1px solid var(--card-border);
+  border-radius: 4px; padding: 6px 10px; font-family: inherit;
+  font-size: 0.93em; background: #f5f9fd; resize: vertical;
+}
+.q-textarea:focus { outline: none; border-color: var(--accent); }
+
+.result {
+  display: none; margin-top: 8px; padding: 8px 12px;
+  background: #f5f9fd; border: 1px solid var(--card-border);
+  border-radius: 4px; font-size: 0.9em; line-height: 1.6;
+}
+.result .badge {
+  display: inline-block; padding: 1px 9px; border-radius: 3px;
+  font-weight: 700; font-size: 0.82em; margin-right: 6px;
+}
+.badge-ok  { background: var(--correct-bg); color: #166534; }
+.badge-no  { background: var(--wrong-bg); color: #991b1b; }
+.badge-ref { background: #dbeafe; color: #1e40af; }
+.badge-partial { background: #d0e0f5; color: #1e40af; }
+
+.result .explanation { margin-top: 4px; color: var(--ink); }
+.result .pitfall {
+  color: #2563eb; margin-top: 3px; font-size: 0.9em;
+  padding: 4px 8px; background: #e8f0fa; border-left: 3px solid #93c5fd; border-radius: 2px;
+}
+.result .source-tag { font-size: 0.78em; color: #999; margin-top: 2px; }
+
+/* ── Buttons ── */
+.btn {
+  padding: 6px 18px; border: none; border-radius: var(--radius);
+  cursor: pointer; font-weight: 600; font-size: 0.93em; letter-spacing: 0.3px;
+  transition: all 0.15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { background: #bbb; cursor: not-allowed; }
+.btn-outline {
+  background: transparent; border: 1px solid var(--accent); color: var(--accent);
+}
+
+/* ── Score Box ── */
+.score-box {
+  display: none; background: var(--paper-dark); padding: 14px 18px;
+  border-radius: var(--radius); margin: 10px 0; text-align: center;
+  border: 1px solid var(--card-border);
+}
+.score-num { font-size: 2em; font-weight: 700; }
+
+/* ── Timer ── */
+.timer { font-size: 1.2em; font-weight: 700; color: var(--wrong); }
+.timer.warning { animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: 0.5; } }
+
+/* ── Wrong Book ── */
+.wrongbook-list { list-style: none; padding: 0; }
+.wrongbook-list li {
+  padding: 6px 10px; margin: 4px 0; border-radius: 4px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  cursor: pointer; font-size: 0.93em;
+}
+.wrongbook-list li:hover { background: #dce5f2; }
+.wrongbook-empty { text-align: center; color: var(--ink-light); padding: 40px 0; }
+
+/* ── Renewal Banner ── */
+.renewal-banner {
+  display: none; background: #d0e0f5; border: 1px solid #93c5fd;
+  padding: 10px 14px; border-radius: var(--radius); margin-bottom: 12px;
+  font-size: 0.9em; text-align: center;
+}
+.renewal-banner a { color: var(--accent); font-weight: 700; }
+
+/* ── Expired Page ── */
+.expired-page {
+  display: none; text-align: center; padding: 60px 20px;
+}
+.expired-page h2 { color: var(--wrong); font-size: 1.5em; }
+.expired-page p { color: var(--ink-light); margin: 12px 0; }
+
+/* ── Radar Chart ── */
+.radar-container { display: flex; justify-content: center; margin: 16px 0; }
+.radar-container canvas { max-width: 100%; }
+
+
+
+/* ── Question Navigation ── */
+.question-nav {
+  display: flex; flex-wrap: wrap; gap: 4px;
+  padding: 8px; margin-bottom: 10px;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); max-height: 120px; overflow-y: auto;
+}
+.qnav-item {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 4px;
+  font-size: 0.8em; font-weight: 600; cursor: pointer;
+  border: 1px solid var(--card-border); background: #f5f9fd;
+  transition: all 0.12s;
+}
+.qnav-item:hover { background: #dce5f2; }
+.qnav-current { background: var(--accent) !important; color: #fff !important; border-color: var(--accent) !important; }
+.qnav-correct { background: var(--correct-bg) !important; color: #166534 !important; border-color: var(--correct) !important; }
+.qnav-wrong { background: var(--wrong-bg) !important; color: #991b1b !important; border-color: var(--wrong) !important; }
+.qnav-done { background: #dbeafe !important; color: #1e40af !important; border-color: #93c5fd !important; }
+
+/* ── Floating Nav ── */
+.floating-nav {
+  position: fixed; bottom: 24px; right: 24px; z-index: 999;
+}
+.floating-btn {
+  width: 44px; height: 44px; border-radius: 50%;
+  background: var(--accent); color: #fff; border: none;
+  cursor: pointer; font-size: 1.2em; font-weight: 700;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  transition: all 0.2s; display: flex; align-items: center; justify-content: center;
+}
+.floating-btn:hover { background: var(--accent-hover); transform: scale(1.05); }
+.floating-menu {
+  display: none; position: absolute; bottom: 52px; right: 0;
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 8px 0; min-width: 140px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+}
+.floating-menu a {
+  display: block; padding: 8px 16px; font-size: 0.9em; color: var(--ink);
+  text-decoration: none; cursor: pointer; transition: background 0.1s;
+}
+.floating-menu a:hover { background: var(--paper-dark); color: var(--accent); }
+
+/* ── Code Blocks ── */
+.code-block-wrapper {
+  margin: 10px 0; border: 1px solid #d0d7de; background: #f6f8fa;
+  max-width: 100%;
+}
+.code-block-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 4px 12px; background: #e8ecf0; font-size: 0.75em;
+  color: #57606a; font-weight: 600;
+  border-radius: var(--radius) var(--radius) 0 0;
+}
+.code-block-wrapper pre {
+  margin: 0; padding: 12px 14px; overflow-x: auto;
+  font-family: "Cascadia Code", "Fira Code", "JetBrains Mono", Consolas, "Courier New", monospace;
+  font-size: 0.82em; line-height: 1.6; background: #f6f8fa;
+  counter-reset: codeline;
+  border-radius: 0 0 var(--radius) var(--radius);
+}
+.code-block-wrapper pre code {
+  display: block; white-space: pre; color: #24292f;
+}
+.code-block-wrapper pre .code-line {
+  display: block; padding-left: 3.5em; text-indent: -3.5em;
+}
+.code-block-wrapper pre .code-line::before {
+  counter-increment: codeline;
+  content: counter(codeline);
+  display: inline-block; width: 2.5em; padding-right: 1em;
+  text-align: right; color: #8c959f; font-size: 0.85em; user-select: none;
+}
+.inline-code {
+  background: #e8ecf0; padding: 1px 5px; border-radius: 3px;
+  font-family: Consolas, "Courier New", monospace; font-size: 0.88em;
+  color: #1a1a2e;
+}
+
+/* ── Course Intro Card ── */
+.course-intro-card {
+  background: linear-gradient(135deg, #eef4ff 0%, #f0f7ff 100%);
+  border: 1px solid #c8daf0; border-radius: var(--radius);
+  padding: 16px 18px; margin-bottom: 16px;
+}
+.course-intro-card h3 { margin: 0 0 8px; font-size: 1.05em; color: #1e40af; }
+.course-intro-card .intro-section { margin: 8px 0; font-size: 0.9em; line-height: 1.7; }
+.course-intro-card .intro-label { font-weight: 700; color: #1e40af; }
+.course-intro-card ul { margin: 4px 0 4px 16px; padding: 0; }
+.course-intro-card li { margin: 3px 0; font-size: 0.9em; }
+
+/* ── Chapter Example Block ── */
+.chapter-example {
+  background: #fefdf5; border-left: 3px solid #e5c05e;
+  padding: 8px 12px; margin: 8px 0; border-radius: 0 4px 4px 0;
+  font-size: 0.88em;
+}
+.chapter-example .example-label { font-weight: 700; color: #b45309; }
+
+/* ── Notes Editor ── */
+.notes-section { margin-top: 6px; }
+
+.notes-editor {
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+.notes-toolbar {
+  display: flex; align-items: center; gap: 2px;
+  padding: 4px 8px; background: #f0f4f8;
+  border-bottom: 1px solid var(--card-border);
+  flex-wrap: wrap;
+}
+.notes-toolbar button {
+  width: 28px; height: 26px; border: 1px solid transparent;
+  border-radius: 3px; background: transparent;
+  cursor: pointer; font-size: 0.82em; color: var(--ink-light);
+  display: flex; align-items: center; justify-content: center;
+  transition: all 0.12s;
+}
+.notes-toolbar button:hover {
+  background: #dce5f2; border-color: var(--card-border);
+}
+
+.notes-content {
+  min-height: 60px; max-height: 400px;
+  padding: 10px 12px; font-size: 0.9em; line-height: 1.7;
+  overflow-y: auto; outline: none;
+  color: var(--ink);
+}
+.notes-content:empty::before {
+  content: attr(data-placeholder);
+  color: #aaa; pointer-events: none;
+}
+.notes-content img {
+  max-width: 100%; max-height: 300px;
+  border-radius: 4px; margin: 6px 0;
+  display: block;
+}
+
+/* ── Notebook Tab ── */
+.note-card {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: var(--radius); padding: 12px 14px; margin: 10px 0;
+  transition: all 0.15s;
+}
+.note-card:hover { border-color: #93c5fd; }
+
+.note-card-header {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 8px; gap: 8px;
+}
+.note-question-text {
+  font-weight: 600; font-size: 0.9em; color: var(--accent);
+  cursor: pointer; flex: 1;
+}
+.note-question-text:hover { text-decoration: underline; }
+.note-date {
+  font-size: 0.75em; color: #999; flex-shrink: 0;
+}
+
+.note-card-content {
+  font-size: 0.88em; line-height: 1.7; color: var(--ink);
+  padding: 8px 10px; background: #fff;
+  border-left: 3px solid #dbeafe;
+  border-radius: 0 4px 4px 0; margin-bottom: 8px;
+}
+.note-card-content img {
+  max-width: 100%; max-height: 200px;
+  border-radius: 4px; margin: 4px 0;
+}
+
+.note-card-actions {
+  display: flex; gap: 8px;
+}
+
+.notebook-empty {
+  text-align: center; color: var(--ink-light);
+  padding: 60px 20px; font-size: 1em;
+}
+
+/* ── Text Highlights ── */
+mark.ai-hl {
+  border-radius: 2px; padding: 0 2px; cursor: pointer;
+  transition: background 0.15s;
+}
+mark.ai-hl-yellow  { background: #fef08a; }
+mark.ai-hl-green   { background: #bbf7d0; }
+mark.ai-hl-blue    { background: #bfdbfe; }
+mark.ai-hl-pink    { background: #fecaca; }
+mark.ai-hl-orange  { background: #fed7aa; }
+mark.ai-hl-has-note {
+  border-bottom: 2px dotted #ef4444;
+}
+
+.hl-toolbar {
+  display: none; position: absolute; z-index: 1000;
+  background: #fff; border: 1px solid #d4dfea;
+  border-radius: 8px; padding: 4px 6px; gap: 2px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.12);
+  align-items: center;
+}
+.hl-toolbar button {
+  width: 30px; height: 28px; border: none; border-radius: 4px;
+  background: transparent; cursor: pointer; font-size: 0.9em;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.1s;
+}
+.hl-toolbar button:hover { background: #f0f4f8; }
+
+.hl-inline-editor {
+  font-size: 0.88em;
+}
+.hl-inline-editor .notes-toolbar {
+  display: flex; gap: 2px; align-items: center;
+}
+.hl-inline-editor .notes-toolbar button {
+  padding: 2px 6px; font-size: 0.82em; border: 1px solid #ddd;
+  background: #fff; border-radius: 3px; cursor: pointer;
+}
+.hl-inline-editor .notes-toolbar button:hover { background: #f0f4f8; }
+.hl-inline-editor .hl-note-content[data-placeholder]:empty:before {
+  content: attr(data-placeholder); color: #aaa;
+}
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  body { padding: 8px 10px 40px; font-size: 11pt; }
+  nav.tabs button { padding: 4px 10px; font-size: 0.85em; }
+  .quiz-header { flex-direction: column; align-items: stretch; }
+}
+/* ── KP Detail Panel ── */
+.kp-overlay {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.25);
+  z-index: 1000;
+}
+.kp-panel {
+  display: none; flex-direction: column;
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: 400px; max-width: 92vw;
+  background: #fff; box-shadow: -4px 0 24px rgba(0,0,0,0.12);
+  z-index: 1001; overflow: hidden;
+}
+.kp-panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 16px; border-bottom: 1px solid var(--divider);
+  background: var(--paper);
+}
+.kp-panel-header span { font-weight: 700; font-size: 1em; }
+.kp-panel-close {
+  width: 28px; height: 28px; border: none; border-radius: 50%;
+  background: transparent; cursor: pointer; font-size: 1.1em;
+  color: var(--ink-light); display: flex; align-items: center; justify-content: center;
+}
+.kp-panel-close:hover { background: var(--paper-dark); }
+.kp-panel-body {
+  flex: 1; overflow-y: auto; padding: 12px 16px 20px;
+}
+.kp-panel-footer {
+  display: flex; gap: 8px; padding: 10px 16px 16px;
+  border-top: 1px solid var(--divider);
+}
+
+.kp-section {
+  margin-bottom: 16px; padding: 10px 12px;
+  border-radius: var(--radius); border-left: 3px solid transparent;
+}
+.kp-section-intro     { background: #f0f9ff; border-left-color: #0ea5e9; }
+.kp-section-prereq    { background: #fefce8; border-left-color: #eab308; }
+.kp-section-value     { background: #f0fdf4; border-left-color: #22c55e; }
+.kp-section-supports  { background: #fff7ed; border-left-color: #f97316; }
+.kp-section-supplement{ background: #faf5ff; border-left-color: #a855f7; }
+
+.kp-section-num {
+  display: inline-block; width: 22px; height: 22px; border-radius: 50%;
+  background: var(--paper-dark); text-align: center; line-height: 22px;
+  font-weight: 700; font-size: 0.78em; color: var(--ink-light);
+  margin-right: 4px; vertical-align: middle; flex-shrink: 0;
+}
+.kp-section-label { font-weight: 700; font-size: 0.88em; margin-bottom: 2px; }
+.kp-section-desc { font-size: 0.75em; color: #999; margin-bottom: 6px; }
+.kp-section-content { font-size: 0.85em; line-height: 1.65; color: var(--ink); }
+
+.kp-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+.kp-tag {
+  display: inline-block; padding: 2px 8px; border-radius: 4px;
+  font-size: 0.8em; cursor: pointer; transition: background 0.12s;
+}
+.kp-tag-prereq  { background: #fef3c7; color: #92400e; }
+.kp-tag-prereq:hover  { background: #fde68a; }
+.kp-tag-supports { background: #ffedd5; color: #9a3412; }
+.kp-tag-supports:hover { background: #fed7aa; }
+
+.kp-supp-item { margin: 6px 0; font-size: 0.85em; line-height: 1.5; }
+
+@media (max-width: 600px) {
+  .kp-panel { width: 100vw; max-width: 100vw; }
+}
+</style>
+</head>
+<body>
+
+<!-- ====== Header ====== -->
+<header id="app-header">
+  <div class="header-brand">{{ course }}{% if textbook %} · {{ textbook }}{% endif %}</div>
+  <div style="display:flex;align-items:center;gap:4px;">
+    <button class="font-btn" onclick="FontSize.decrease()" title="缩小字体">A-</button>
+    <button class="font-btn" onclick="FontSize.increase()" title="放大字体">A+</button>
+  </div>
+  <div class="header-user">内容基于用户资料整理，仅供参考</div>
+</header>
+<hr class="header-divider">
+
+<!-- ====== 续费提醒 ====== -->
+<div class="renewal-banner" id="renewal-banner">
+  ⏰ 你的刷题服务将在 <strong id="countdown-text"></strong> 后到期。
+  补 <strong>27 元</strong> 即可升级月卡（总计 30 元），数据不丢失。
+  <br>请前往闲鱼联系卖家续费。
+</div>
+
+<!-- ====== 到期页面（初始隐藏） ====== -->
+<div class="expired-page" id="expired-page">
+  <h2>⏰ 服务已到期</h2>
+  <p>你的刷题数据已安全保存。</p>
+  <p>如需继续使用，请在闲鱼联系卖家续费。</p>
+  <p style="color:var(--ink-light);font-size:0.85em;">课程：{{ course }} · 用户：{{ user_name }}</p>
+</div>
+
+<!-- ====== 资料溯源面板 ====== -->
+{% if source_panel and source_panel.has_materials %}
+<div class="source-panel">
+  <details>
+    <summary>📋 本题库生成依据（点击展开）</summary>
+    <div class="source-stats">
+      <span class="source-tag source-user">📊 用户资料：{{ source_panel.materials_list }}</span>
+      <span class="source-tag source-textbook">📖 教材：{{ source_panel.textbook }}</span>
+      {% if source_panel.high_freq_points %}
+      <span style="font-size:0.82em;">🏷️ 高频考点：{{ source_panel.high_freq_points | join('、') }}</span>
+      {% endif %}
+    </div>
+    <div style="margin-top:6px;color:var(--ink-light);">
+      自定义程度：<strong>{{ source_panel.coverage_ratio }}%</strong>
+      （知识点来源：用户资料 {{ source_panel.kp_sources.user_material }} 个 +
+       教材补充 {{ source_panel.kp_sources.textbook_supplement }} 个）
+    </div>
+  </details>
+</div>
+{% elif is_generic %}
+<div class="source-panel" style="background:#e8f0fa;border-color:#93c5fd;">
+  ⚠️ <strong>通用版</strong>——题库基于课程公共知识点生成。
+  上传老师 PPT 或历年真题可<strong>免费升级为定制版</strong>，考点更精准。
+</div>
+{% endif %}
+
+<!-- ====== 导航 Tab ====== -->
+<nav class="tabs">
+  <button class="tab active" data-tab="knowledge">📖 知识点</button>
+  <button class="tab" data-tab="cheatsheet">⚡ 速查</button>
+  <button class="tab" data-tab="strategies">💡 解题思路</button>
+  <button class="tab" data-tab="quiz">✏️ 刷题</button>
+  <button class="tab" data-tab="wrongbook">📝 错题本 <span id="wrong-count" style="font-size:0.8em;"></span></button>
+  <button class="tab" data-tab="notebook">📒 笔记本 <span id="note-count" style="font-size:0.8em;"></span></button>
+  <button class="tab" data-tab="stats">📊 统计</button>
+  <button class="tab" data-tab="exam">📋 模拟考</button>
+</nav>
+
+<!-- ====== Tab 内容区 ====== -->
+<div id="tab-knowledge" class="tab-content">
+  <!-- 高频考点汇总 -->
+  <div class="source-panel" id="highfreq-summary" style="margin-bottom:14px;">
+    <details open>
+      <summary>[Target] 高频考点汇总（必考 + 高频）</summary>
+      <div id="highfreq-list" style="margin-top:6px;font-size:0.9em;"></div>
+    </details>
+  </div>
+  <!-- 详细复习清单 -->
+  <div class="source-panel" style="margin-bottom:14px;">
+    <details open>
+      <summary>📖 期末复习知识清单（详细版 · 含定义/公式/解题方法/考点）</summary>
+      <div id="review-guide-container" style="margin-top:6px;"></div>
+    </details>
+  </div>
+  <!-- 能力雷达图 -->
+  <div class="source-panel" style="margin-bottom:14px;">
+    <details>
+      <summary>📊 知识点掌握度雷达图</summary>
+      <div class="radar-container" id="radar-container"></div>
+    </details>
+  </div>
+  <!-- 知识树概览 -->
+  <div class="source-panel" style="margin-bottom:14px;">
+    <details>
+      <summary>🌳 知识点树形结构</summary>
+      <div class="knowledge-tree" id="knowledge-tree-container"></div>
+    </details>
+  </div>
+</div>
+
+<div id="tab-cheatsheet" class="tab-content" style="display:none;">
+  <div id="cheatsheet-container"></div>
+</div>
+
+<div id="tab-strategies" class="tab-content" style="display:none;">
+  <!-- 解题思路由 JS 动态渲染 -->
+  <div id="strategies-container"></div>
+</div>
+
+<div id="tab-quiz" class="tab-content" style="display:none;">
+  <div class="quiz-header">
+    <select id="kp-selector"><option value="all">全部知识点</option></select>
+    <span style="font-size:0.9em;color:var(--ink-light);">
+      已刷 <span id="quiz-progress">0</span> / <span id="quiz-total">0</span> 题
+    </span>
+  </div>
+  <div class="question-nav" id="question-nav"></div>
+  <div id="quiz-container"></div>
+  <div style="text-align:center;margin:16px 0;">
+    <button class="btn btn-outline" onclick="QuizEngine.prevQuestion()">上一题</button>
+    <button class="btn btn-primary" id="quiz-submit-btn" onclick="QuizEngine.submitCurrent()">提交</button>
+    <button class="btn btn-outline" onclick="QuizEngine.nextQuestion()">下一题</button>
+  </div>
+</div>
+
+<div id="tab-wrongbook" class="tab-content" style="display:none;">
+  <div style="margin-bottom:12px;">
+    <button class="btn btn-outline" onclick="QuizEngine.startWrongOnly()">只练错题</button>
+    <button class="btn btn-outline" onclick="WrongBook.clear()" style="margin-left:8px;">清空错题本</button>
+  </div>
+  <div id="wrongbook-container"></div>
+</div>
+
+<div id="tab-notebook" class="tab-content" style="display:none;">
+  <div id="notebook-container"></div>
+</div>
+
+<div id="tab-stats" class="tab-content" style="display:none;">
+  <div id="stats-container"></div>
+</div>
+
+<div id="tab-exam" class="tab-content" style="display:none;">
+  <div style="text-align:center;margin:12px 0;">
+    <button class="btn btn-primary" id="start-exam-btn" onclick="ExamMode.start()">开始模拟考试</button>
+    <button class="btn btn-outline" id="stop-exam-btn" onclick="ExamMode.stop()" style="display:none;">提前交卷</button>
+    <span class="timer" id="exam-timer" style="display:none;"></span>
+  </div>
+  <div class="score-box" id="exam-score-box">
+    <div class="score-num" id="exam-score-num">0</div>
+    <div>总分</div>
+  </div>
+  <div id="exam-container"></div>
+</div>
+
+<!-- ====== 数据注入 ====== -->
+<script>
+// 字体大小调节（纯前端，localStorage 记忆偏好）
+const FontSize = {
+  STORAGE_KEY: 'ai_quiz_font_size',
+  SIZES: [14, 16, 18, 20, 22, 24],
+  DEFAULT: 3,
+
+  init() {
+    var saved = parseInt(localStorage.getItem(this.STORAGE_KEY));
+    if (isNaN(saved)) saved = this.DEFAULT;
+    this.apply(saved);
+  },
+
+  apply(idx) {
+    if (idx < 0) idx = 0;
+    if (idx >= this.SIZES.length) idx = this.SIZES.length - 1;
+    var size = this.SIZES[idx];
+    document.body.style.fontSize = size + 'px';
+    localStorage.setItem(this.STORAGE_KEY, idx);
+  },
+
+  increase() {
+    var cur = parseInt(localStorage.getItem(this.STORAGE_KEY));
+    if (isNaN(cur)) cur = this.DEFAULT;
+    this.apply(cur + 1);
+  },
+
+  decrease() {
+    var cur = parseInt(localStorage.getItem(this.STORAGE_KEY));
+    if (isNaN(cur)) cur = this.DEFAULT;
+    this.apply(cur - 1);
+  },
+};
+FontSize.init();
+
+const KNOWLEDGE_TREE = {{ knowledge_tree_json | safe }};
+const QUESTION_BANK = {{ question_bank_json | safe }};
+const STRATEGIES = {{ strategies_json | safe }};
+const REVIEW_GUIDE = {{ review_guide_json | safe }};
+const PIPELINE = {{ pipeline_json | safe }};
+const CHEAT_SHEETS = {{ cheat_sheets_json | safe }};
+const KP_DETAILS = {{ kp_details_json | safe }};
+const CONFIG = {{ config_json | safe }};
+</script>
+
+<!-- ====== 悬浮导航 ====== -->
+<div class="floating-nav">
+  <div class="floating-menu" id="floating-menu">
+    <a onclick="document.querySelector('[data-tab=knowledge]').click();toggleFloatingMenu()">📖 知识点</a>
+    <a onclick="document.querySelector('[data-tab=strategies]').click();toggleFloatingMenu()">💡 解题思路</a>
+    <!-- 章节快捷跳转（JS动态填充） -->
+    <div id="floating-chapters" style="max-height:240px;overflow-y:auto;"></div>
+    <a onclick="document.querySelector('[data-tab=quiz]').click();toggleFloatingMenu()">刷题</a>
+    <a onclick="document.querySelector('[data-tab=wrongbook]').click();toggleFloatingMenu()">错题本</a>
+    <a onclick="document.querySelector('[data-tab=stats]').click();toggleFloatingMenu()">统计</a>
+    <a onclick="document.querySelector('[data-tab=exam]').click();toggleFloatingMenu()">模拟考</a>
+    <a onclick="FontSize.decrease();toggleFloatingMenu()" style="font-size:0.85em;">A- 缩小字体</a>
+    <a onclick="FontSize.increase();toggleFloatingMenu()" style="font-size:0.85em;">A+ 放大字体</a>
+    <a onclick="window.scrollTo({top:0,behavior:'smooth'});toggleFloatingMenu()" style="border-top:1px solid var(--card-border);margin-top:4px;padding-top:8px;">回到顶部</a>
+  </div>
+  <button class="floating-btn" onclick="toggleFloatingMenu()" title="快速导航">☰</button>
+</div>
+<script>
+function toggleFloatingMenu() {
+  var m = document.getElementById('floating-menu');
+  m.style.display = m.style.display === 'block' ? 'none' : 'block';
+}
+document.addEventListener('click', function(e) {
+  if (!e.target.closest('.floating-nav')) {
+    document.getElementById('floating-menu').style.display = 'none';
+  }
+});
+</script>
+
+<!-- ====== JS 逻辑 ====== -->
+<script>
+{{ inline_js | safe }}
+</script>
+
+</body>
+</html>

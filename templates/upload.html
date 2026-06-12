@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>上传复习资料</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: linear-gradient(135deg, #e8f0fe 0%, #d4e4fc 100%);
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+  }
+  .card {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    max-width: 500px;
+    width: 100%;
+    padding: 32px 28px;
+  }
+  h1 {
+    font-size: 1.4em;
+    color: #2c3e6b;
+    margin-bottom: 6px;
+    text-align: center;
+  }
+  .subtitle {
+    text-align: center;
+    color: #888;
+    font-size: 0.85em;
+    margin-bottom: 24px;
+  }
+  .method {
+    background: #f7f9fc;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 14px;
+    border-left: 3px solid #4a90d9;
+  }
+  .method h3 {
+    font-size: 1em;
+    color: #2c3e6b;
+    margin-bottom: 6px;
+  }
+  .method p {
+    font-size: 0.85em;
+    color: #666;
+    line-height: 1.6;
+  }
+  .method a {
+    color: #4a90d9;
+    text-decoration: none;
+    word-break: break-all;
+  }
+  .method .copy-btn {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 4px 12px;
+    background: #4a90d9;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    font-size: 0.8em;
+    cursor: pointer;
+  }
+  .method .copy-btn:hover { background: #3a7bc8; }
+  .note {
+    background: #fff8e1;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 0.8em;
+    color: #8d6e00;
+    margin-top: 16px;
+    line-height: 1.6;
+  }
+  .upload-area {
+    border: 2px dashed #d0d7de;
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    margin: 20px 0;
+    transition: border-color 0.2s;
+    cursor: pointer;
+  }
+  .upload-area:hover, .upload-area.dragover {
+    border-color: #4a90d9;
+    background: #f0f6ff;
+  }
+  .upload-area input { display: none; }
+  .upload-area .icon { font-size: 2em; margin-bottom: 8px; }
+  .upload-area .hint { font-size: 0.85em; color: #888; }
+  #file-list { margin-top: 12px; font-size: 0.85em; }
+  #file-list .file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    background: #e8f5e9;
+    border-radius: 6px;
+    margin: 4px 0;
+  }
+  #file-list .file-item .name { flex: 1; color: #2e7d32; }
+  #file-list .file-item .size { color: #888; font-size: 0.8em; }
+  #file-list .file-item .remove { color: #c62828; cursor: pointer; }
+  #submit-btn {
+    width: 100%;
+    padding: 12px;
+    background: #2c3e6b;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 1em;
+    cursor: pointer;
+    margin-top: 12px;
+    display: none;
+  }
+  #submit-btn:hover { background: #1a2744; }
+  #submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+  .success-msg {
+    display: none;
+    text-align: center;
+    padding: 20px;
+    background: #e8f5e9;
+    border-radius: 12px;
+    margin-top: 16px;
+    color: #2e7d32;
+  }
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>📤 上传复习资料</h1>
+  <p class="subtitle">支持 PPT、PDF、Word、图片</p>
+
+  <!-- 方式一：直接上传（需要后端服务运行中） -->
+  <div class="upload-area" id="upload-area">
+    <div class="icon">📁</div>
+    <div style="font-size:0.9em;color:#333;">点击选择文件 或 拖拽到此处</div>
+    <div class="hint">支持 .pptx .pdf .docx .doc .jpg .png，单文件不超过20MB</div>
+    <input type="file" id="file-input" multiple accept=".pptx,.pdf,.docx,.doc,.jpg,.jpeg,.png">
+  </div>
+  <div id="file-list"></div>
+  <div style="display:flex;gap:8px;margin-top:12px;">
+    <input type="text" id="course-name" placeholder="课程名（必填）" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:0.9em;">
+    <input type="text" id="school-name" placeholder="学校名（选填）" style="flex:1;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:0.9em;">
+  </div>
+  <input type="text" id="exam-format" placeholder="考试题型，如：选择10*1=10分,简答5*2=10分（选填）" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:0.9em;margin-top:8px;">
+  <input type="text" id="user-name" placeholder="你的闲鱼昵称（方便卖家找到你）" style="width:100%;padding:10px;border:1px solid #ddd;border-radius:8px;font-size:0.9em;margin-top:8px;">
+  <button id="submit-btn">提交资料</button>
+  <div class="success-msg" id="success-msg">
+    <div style="font-size:2em;">✅</div>
+    <div>资料已提交成功！</div>
+    <div style="font-size:0.85em;color:#666;margin-top:4px;">我们正在处理，请稍后在闲鱼上查收复习页面</div>
+  </div>
+
+  <!-- 方式二：网盘 / 邮箱 -->
+  <div style="margin-top:24px;border-top:1px solid #eee;padding-top:20px;">
+    <div style="text-align:center;color:#888;font-size:0.8em;margin-bottom:12px;">— 或者通过以下方式发送 —</div>
+
+    <div class="method">
+      <h3>☁️ 网盘分享</h3>
+      <p>把资料上传到你的网盘（百度网盘 / 阿里云盘），生成分享链接后发给闲鱼卖家即可。</p>
+    </div>
+
+    <div class="method">
+      <h3>📧 邮件发送</h3>
+      <p>将资料作为附件发送到：<br>
+      <a href="mailto:3111493583@qq.com" style="font-size:1em;">3111493583@qq.com</a><br>
+      邮件标题写：<strong>学校名-课程名</strong></p>
+    </div>
+  </div>
+
+  <div class="note">
+    💡 <strong>提示：</strong>上传页面仅供方便，如果上传失败请用网盘或邮件方式。资料越多，生成的复习内容越精准。
+  </div>
+</div>
+
+<script>
+  const uploadArea = document.getElementById('upload-area');
+  const fileInput = document.getElementById('file-input');
+  const fileList = document.getElementById('file-list');
+  const submitBtn = document.getElementById('submit-btn');
+  const successMsg = document.getElementById('success-msg');
+  let selectedFiles = [];
+
+  uploadArea.addEventListener('click', () => fileInput.click());
+  uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+  uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+  uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    addFiles(e.dataTransfer.files);
+  });
+  fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+  function addFiles(files) {
+    for (const f of files) {
+      if (f.size > 20 * 1024 * 1024) { alert(f.name + ' 超过20MB限制'); continue; }
+      if (selectedFiles.find(x => x.name === f.name && x.size === f.size)) continue;
+      selectedFiles.push(f);
+    }
+    renderFiles();
+  }
+
+  function renderFiles() {
+    fileList.innerHTML = selectedFiles.map((f, i) => `
+      <div class="file-item">
+        <span>📄</span>
+        <span class="name">${f.name}</span>
+        <span class="size">${(f.size/1024).toFixed(0)}KB</span>
+        <span class="remove" onclick="removeFile(${i})">✕</span>
+      </div>
+    `).join('');
+    submitBtn.style.display = selectedFiles.length > 0 ? 'block' : 'none';
+  }
+
+  function removeFile(i) {
+    selectedFiles.splice(i, 1);
+    renderFiles();
+  }
+
+  submitBtn.addEventListener('click', async () => {
+    const course = document.getElementById('course-name').value.trim();
+    if (!course) { alert('请填写课程名'); return; }
+    if (selectedFiles.length === 0) { alert('请选择文件'); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = '上传中...';
+
+    const form = new FormData();
+    form.append('course', course);
+    form.append('school', document.getElementById('school-name').value.trim() || '通用');
+    form.append('exam_format', document.getElementById('exam-format').value.trim() || '');
+    form.append('user_name', document.getElementById('user-name').value.trim() || '');
+    for (const f of selectedFiles) form.append('files', f);
+
+    try {
+      const resp = await fetch('/api/upload', { method: 'POST', body: form });
+      if (resp.ok) {
+        successMsg.style.display = 'block';
+        submitBtn.style.display = 'none';
+        fileList.innerHTML = '';
+        selectedFiles = [];
+      } else {
+        const err = await resp.text();
+        alert('上传失败：' + (err || '请用网盘或邮箱方式'));
+      }
+    } catch(e) {
+      alert('上传服务暂不可用，请用网盘或邮箱方式发送资料');
+    }
+    submitBtn.disabled = false;
+    submitBtn.textContent = '提交资料';
+  });
+</script>
+</body>
+</html>

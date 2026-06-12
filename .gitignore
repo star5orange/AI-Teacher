@@ -1,0 +1,43 @@
+# 环境变量（含 API Key）
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# 输出文件
+output/*.html
+
+# 临时文件
+tmp_*.txt
+
+# 用户上传文件
+user_file/
+uploads_pending/
+
+# 本地测试文件
+Java综合测试.html
+第2章_知识清单.html
+
+# 数据目录
+data/
+cache/
+
+# 缓存
+cache/courses/*.json
+
+# 数据库
+data/tokens.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
