@@ -151,8 +151,10 @@ def main(school, course, materials, textbook, exam_format, days, user, price, sk
         if materials:
             user_texts = "\n".join([f.get("text", "")[:3000] for f in user_materials.get("files", [])[:5]])
         review_result = generate_review_guide(school=school, course=course, user_content=user_texts, knowledge_tree=knowledge_tree)
-        review_guide = review_result.get("review_guide", {})
-        total_llm_cost += review_result.get("cost", 0)
+        review_guide = review_result.get("review_guide", {}) if review_result else {}
+        if review_guide is None:
+            review_guide = {}
+        total_llm_cost += review_result.get("cost", 0) if review_result else 0
         chapters_count = len(review_guide.get("chapters", []))
         print(f"   生成 {chapters_count} 章的详细复习内容")
 

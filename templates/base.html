@@ -311,6 +311,14 @@ nav.tabs button.active {
 .code-block-wrapper pre .code-line {
   display: block; padding-left: 3.5em; text-indent: -3.5em;
 }
+/* Mermaid 图表 */
+.mermaid {
+  text-align: center; margin: 12px 0; padding: 8px;
+  background: #fafbfc; border: 1px solid var(--card-border); border-radius: var(--radius);
+  overflow-x: auto;
+}
+.mermaid svg { max-width: 100%; height: auto; }
+
 .code-block-wrapper pre .code-line::before {
   counter-increment: codeline;
   content: counter(codeline);
@@ -544,6 +552,69 @@ mark.ai-hl-has-note {
 @media (max-width: 600px) {
   .kp-panel { width: 100vw; max-width: 100vw; }
 }
+
+/* ── Knowledge Card ── */
+.knowledge-card {
+  background: #fff;
+  border: 1px solid #d4dfea;
+  border-radius: 10px;
+  margin: 16px 0;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+  overflow: hidden;
+  transition: box-shadow 0.2s;
+}
+.knowledge-card:hover {
+  box-shadow: 0 2px 16px rgba(0,0,0,0.1);
+}
+.kc-header {
+  background: linear-gradient(135deg, #eef4ff 0%, #e8f0fa 100%);
+  padding: 10px 14px;
+  font-weight: 700;
+  font-size: 0.95em;
+  color: #1e40af;
+  border-bottom: 1px solid #d4dfea;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.kc-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 30px;
+  height: 30px;
+  border-radius: 15px;
+  background: #2563eb;
+  color: #fff;
+  font-size: 0.82em;
+  font-weight: 700;
+  padding: 0 6px;
+  flex-shrink: 0;
+}
+.kc-body {
+  padding: 14px 16px;
+  font-size: 0.9em;
+  line-height: 1.75;
+}
+.kc-body h3, .kc-body h4 {
+  margin-top: 0;
+  font-size: 1em;
+}
+.kc-body strong {
+  color: #334155;
+}
+.kc-conclusion {
+  background: #f0fdf4;
+  border-left: 3px solid #22c55e;
+  padding: 8px 14px;
+  margin-top: 10px;
+  border-radius: 0 4px 4px 0;
+  font-size: 0.92em;
+}
+.kc-section-icon {
+  display: inline-block;
+  margin-right: 4px;
+}
 </style>
 </head>
 <body>
@@ -770,6 +841,34 @@ document.addEventListener('click', function(e) {
   if (!e.target.closest('.floating-nav')) {
     document.getElementById('floating-menu').style.display = 'none';
   }
+});
+</script>
+
+<!-- ====== Mermaid 图表渲染 ====== -->
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose' });
+var _mermaidId = 0;
+async function renderMermaid() {
+  var els = document.querySelectorAll('.mermaid:not([data-processed])');
+  for (var i = 0; i < els.length; i++) {
+    var el = els[i];
+    var code = el.textContent.trim();
+    if (!code) continue;
+    try {
+      var id = 'msvg_' + (++_mermaidId);
+      var result = await mermaid.render(id, code);
+      el.innerHTML = result.svg;
+      el.setAttribute('data-processed', 'true');
+    } catch(e) {
+      console.warn('Mermaid error:', e.message);
+      el.innerHTML = '<div style="color:#ef4444;font-size:0.8em;padding:8px;border:1px dashed #ef4444;border-radius:4px;">' + e.message + '</div>';
+      el.setAttribute('data-processed', 'true');
+    }
+  }
+}
+document.addEventListener('DOMContentLoaded', function() {
+  setTimeout(renderMermaid, 500);
 });
 </script>
 

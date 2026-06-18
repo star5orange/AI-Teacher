@@ -150,16 +150,37 @@ def generate_review_guide(
     if not user_content:
         user_content = "（用户未提供资料，请基于该课程通用知识点生成所有章节课）"
 
-    # 从知识树提取章节列表作为必要覆盖提示
+    # 从知识树提取详细知识点列表（含子知识点），作为复习清单的必须覆盖考点
     chapter_hints = ""
     if knowledge_tree and knowledge_tree.get("chapters"):
-        ch_names = [ch.get("title", "") for ch in knowledge_tree["chapters"]]
-        chapter_hints = "\n\n【必须覆盖的章节】\n" + "\n".join(f"- {n}" for n in ch_names) + \
-                       "\n以上所有章节都必须生成复习内容，不能遗漏。"
+        lines = []
+        total_kp = 0
+        for ch in knowledge_tree["chapters"]:
+            ch_title = ch.get("title", "")
+            lines.append(f"\n【{ch_title}】")
+            for sec in ch.get("sections", []):
+                sec_title = sec.get("title", "")
+                sec_desc = sec.get("description", "")
+                importance = sec.get("importance", "常规")
+                lines.append(f"  知识点：{sec_title} [{importance}] — {sec_desc}")
+                total_kp += 1
+                # 子知识点必须全部覆盖
+                for sp in sec.get("sub_points", []):
+                    sp_title = sp.get("title", "")
+                    sp_desc = sp.get("description", "")
+                    if sp_title:
+                        lines.append(f"    ↳ 子知识点（必须独立讲解）：{sp_title} — {sp_desc}")
+                        total_kp += 1
+        chapter_hints = (
+            f"\n\n【必须覆盖的知识点清单——共 {total_kp} 个知识点/子知识点，每个都必须生成独立知识卡片】\n" +
+            "\n".join(lines) +
+            "\n\n关键要求：每个子知识点必须在复习清单中有独立的文字讲解（概念定义+示例+结论），"
+            "不能只画一张总图就跳过。图中每个组件 = 一张独立知识卡片。"
+        )
 
     client = LLMClient("primary")
     result = client.chat(
-        system_prompt="你是一位资深的大学课程辅导专家，专门帮助学生准备期末考试。你的输出是学生唯一的学习资料，必须详尽、有例子、可自学。用户上传的资料可能不完整，你必须生成该课程所有标准章节的复习内容（至少6章）。请严格按照JSON格式输出，代码用```语言名 包裹。",
+        system_prompt="你是一位资深的大学课程辅导专家，专门帮助学生准备期末考试。你的输出是学生唯一的学习资料，必须详尽、有例子、可自学。每一个子知识点都必须有独立的文字讲解——不能只画一张总图就略过细节。图展示关系，文字解释细节，两者互补。用户上传的资料可能不完整，你必须生成该课程所有标准章节的复习内容（至少6章）。请严格按照JSON格式输出，代码用```语言名 包裹。",
         user_prompt=PROMPT_REVIEW_GUIDE.format(
             course=course,
             school=school,
@@ -169,7 +190,7 @@ def generate_review_guide(
         max_tokens=16384,
     )
 
-    parsed = result.get("parsed", {})
+    parsed = result.get("parsed", {}) or {}
     return {
         "review_guide": parsed,
         "cost": result.get("cost", 0),
@@ -301,7 +322,7 @@ def generate_kp_details(course: str, knowledge_tree: dict) -> dict:
     if not chapters:
         return {"kp_details": {}, "cost": 0}
 
-    # 构建知识点列表（ID + 名称 + 章节）
+    # 构建知识点列表（ID + 名称 + 章节，含子知识点）
     kp_lines = []
     for ch in chapters:
         ch_title = ch.get("title", "")
@@ -310,6 +331,11 @@ def generate_kp_details(course: str, knowledge_tree: dict) -> dict:
             kp_name = sec.get("title", sec.get("name", ""))
             if kp_id and kp_name:
                 kp_lines.append(f"  [{kp_id}] {kp_name}（章节：{ch_title}）")
+            # 子知识点
+            for sp in sec.get("sub_points", []):
+                sp_name = sp.get("title", "")
+                if sp_name:
+                    kp_lines.append(f"    ↳ 子: {sp_name}（属于 {kp_name}，章节：{ch_title}）")
 
     if not kp_lines:
         return {"kp_details": {}, "cost": 0}

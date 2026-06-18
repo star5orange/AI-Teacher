@@ -203,6 +203,15 @@ def generate_all_questions(
         for sec in ch.get("sections", []):
             sec["chapter"] = ch.get("title", "")
             all_kps.append(sec)
+            # 展开子知识点：每个 sub_point 作为独立出题单元
+            for sp in sec.get("sub_points", []):
+                sp_kp = dict(sec)  # 继承父知识点属性
+                sp_kp["title"] = sp.get("title", "")
+                sp_kp["name"] = sp.get("title", "")
+                sp_kp["description"] = sp.get("description", "")
+                sp_kp["_is_sub_point"] = True
+                sp_kp["_parent_title"] = sec.get("title", "")
+                all_kps.append(sp_kp)
 
     # 获取题型和难度分布
     type_dist = None
@@ -229,7 +238,12 @@ def generate_all_questions(
 
         # 根据重要性和来源智能调整题量
         importance = kp.get("importance", "常规")
-        if importance == "必考":
+        is_sub = kp.get("_is_sub_point", False)
+
+        if is_sub:
+            # 子知识点：1-2 道题，覆盖该子概念
+            count = 2 if importance in ("必考", "高频") else 1
+        elif importance == "必考":
             count = max(base_count_per_kp + 4, 8)
         elif importance == "高频":
             count = max(base_count_per_kp + 2, 5)
@@ -237,6 +251,10 @@ def generate_all_questions(
             count = base_count_per_kp
         else:
             count = max(1, base_count_per_kp - 1)  # 了解级少出题
+
+        # 有子知识点的父节点减少题量（细节由子节点覆盖）
+        if kp.get("sub_points") and not is_sub:
+            count = max(3, count - 2)
 
         # 用户资料知识点额外加 2 道
         if source == "user_material":
@@ -246,7 +264,8 @@ def generate_all_questions(
 
         count = max(2, count)
 
-        print(f"  [{i}/{total_kps}] {name}（{source}，{count}道）...", end=" ")
+        label = f"{kp.get('_parent_title', '')} › {name}" if is_sub else name
+        print(f"  [{i}/{total_kps}] {label}（{source}，{count}道）...", end=" ")
 
         try:
             if source == "generic":

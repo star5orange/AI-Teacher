@@ -91,13 +91,38 @@ const KnowledgeTree = {
       if (ch.pipeline && ch.pipeline.stages && ch.pipeline.stages.length > 0) {
         h += '<div id="pipeline-ch-' + ci + '" style="margin-bottom:12px;background:var(--card-bg);border:1px solid var(--card-border);border-radius:var(--radius);padding:10px 8px 6px;"></div>';
       }
-      const escapedContent = this._e(ch.content || ''); const headings = this._extractHeadings(escapedContent);
+      // 在转义前提取 Mermaid 代码块，保护它们不受 HTML 转义影响
+      var rawContent = ch.content || '';
+      var mermaidBlocks = [];
+      var protectedContent = rawContent.replace(/```mermaid\s*\n([\s\S]*?)```/g, function(m, code) {
+        var idx = mermaidBlocks.length;
+        mermaidBlocks.push(code.replace(/^\n+|\n+$/g, ''));
+        return '%%MERMAIDPROTECT_' + idx + '%%';
+      });
+      const escapedContent = this._e(protectedContent); const headings = this._extractHeadings(escapedContent);
       if (headings.length >= 3) {
         h += '<details style="margin-bottom:12px;font-size:0.85em;"><summary style="cursor:pointer;font-weight:600;color:var(--accent);">📑 本节目录</summary><div style="background:rgba(0,0,0,0.02);padding:6px 10px;border-radius:4px;margin-top:4px;">';
         for (const hd of headings) { const indent = '&nbsp;&nbsp;'.repeat(hd.level - 1); h += '<div style="margin:2px 0;">' + indent + '• ' + this._e(hd.text) + '</div>'; }
         h += '</div></details>';
       }
       h += this._md(escapedContent);
+      // 还原被保护的 Mermaid 图表（用 DOM 操作设 textContent，避免 HTML 解析器破坏代码）
+      for (var mi = 0; mi < mermaidBlocks.length; mi++) {
+        var uid = 'mermaid_anchor_' + ci + '_' + mi;
+        h = h.replace('%%MERMAIDPROTECT_' + mi + '%%', '<span id="' + uid + '"></span>');
+        // 延迟：等 innerHTML 设置完毕后再填充 Mermaid 代码
+        setTimeout((function(uid, code) {
+          return function() {
+            var anchor = document.getElementById(uid);
+            if (anchor) {
+              var div = document.createElement('div');
+              div.className = 'mermaid';
+              div.textContent = code;
+              anchor.parentNode.replaceChild(div, anchor);
+            }
+          };
+        })(uid, mermaidBlocks[mi]), 10);
+      }
       if (ch.examples && ch.examples.length) { for (const ex of ch.examples) h += '<div class="chapter-example"><span class="example-label">💡 示例：</span>' + this._e(ex) + '</div>'; }
       if (ch.common_mistakes && ch.common_mistakes.length) {
         h += '<div style="margin-top:8px;padding:6px 10px;background:#fef2f2;border-left:3px solid #ef4444;border-radius:0 4px 4px 0;font-size:0.88em;"><strong>⚠️ 本章易错：</strong>';
@@ -129,10 +154,13 @@ const KnowledgeTree = {
     if (window.MathJax && MathJax.typesetPromise) MathJax.typesetPromise([c]).catch(function() {});
     var self = this;
     setTimeout(function() { self.renderPipeline(); self._renderChapterPipelines(); }, 150);
+    setTimeout(function() { if (typeof renderMermaid === 'function') renderMermaid(); }, 500);
+    setTimeout(function() { self._wrapKnowledgeCards(); }, 1200);
     if (typeof NotesUI !== 'undefined') NotesUI.loadAllChapterNotes();
   },
 
   _e(s) { return this._escape(s); },
+  _d(s) { return String(s||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/&quot;/g,'"'); },
 
     _md(t) {
     if (!t) return '';
@@ -191,15 +219,24 @@ const KnowledgeTree = {
     for (let ti = 0; ti < tableBlocks.length; ti++) {
       processed = processed.replace('%%TABLE_' + ti + '%%', tableBlocks[ti]);
     }
-    // 还原代码块
+    // 还原代码块（Mermaid 留到最后，避免被换行替换破坏）
     for (let i = 0; i < codeBlocks.length; i++) {
       const cb = codeBlocks[i];
+      if (cb.lang === 'mermaid') continue; // Mermaid 稍后处理
       const langLabel = cb.lang ? ' <span style="font-weight:400;color:#888;">' + cb.lang + '</span>' : '';
       const lines = cb.code.split('\n');
       const codeLines = lines.map(function(line) { return '<span class="code-line">' + KnowledgeTree._highlightCode(line, cb.lang) + '</span>'; }).join('\n');
       processed = processed.replace('%%CODEBLOCK_' + i + '%%', '<div class="code-block-wrapper"><div class="code-block-header">' + langLabel + '<span>代码</span></div><pre><code>' + codeLines + '</code></pre></div>');
     }
-    return processed.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+    // 换行转 <br>
+    processed = processed.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+    // 最后还原 Mermaid 块（此时换行已转为 <br>，Mermaid 代码内部的换行保留）
+    for (let i = 0; i < codeBlocks.length; i++) {
+      const cb2 = codeBlocks[i];
+      if (cb2.lang !== 'mermaid') continue;
+      processed = processed.replace('%%CODEBLOCK_' + i + '%%', '<div class="mermaid">' + KnowledgeTree._d(cb2.code) + '</div>');
+    }
+    return processed;
   },
 
   _highlightCode(line, lang) {
@@ -266,6 +303,16 @@ const KnowledgeTree = {
         html += '<div class="kp-section" data-kp="' + this._escape(kpId) + '"><div class="kp-header" onclick="KnowledgeTree.onClick(\'' + this._escape(kpId) + '\')" style="cursor:pointer;display:flex;align-items:center;gap:8px;">';
         html += '<span class="kp-name">' + this._escape(name) + '</span><span class="kp-badge ' + badgeClass + '">' + imp + '</span></div>';
         if (sec.description) html += '<div class="kp-description" style="font-size:0.85em;color:var(--ink-light);margin:2px 0 2px 8px;line-height:1.5;">' + this._escape(sec.description) + '</div>';
+        // 渲染子知识点（嵌套结构）
+        var subPoints = sec.sub_points || [];
+        for (var spi = 0; spi < subPoints.length; spi++) {
+          var sp = subPoints[spi];
+          html += '<div class="kp-sub-point" style="margin:2px 0 2px 24px;font-size:0.83em;color:var(--ink-light);line-height:1.5;">';
+          html += '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-right:6px;vertical-align:middle;"></span>';
+          html += '<span class="kp-sub-name" style="font-weight:600;color:var(--ink-default);">' + this._escape(sp.title || '') + '</span>';
+          if (sp.description) html += '<span style="color:var(--ink-light);"> - ' + this._escape(sp.description) + '</span>';
+          html += '</div>';
+        }
         html += '</div>';
       }
     }
@@ -787,4 +834,105 @@ const KnowledgeTree = {
     h += '</div></div>';
     return h;
   },
+  // ── 知识卡片视觉包装（卡片化渲染）──
+  _wrapKnowledgeCards() {
+    var container = document.getElementById('review-guide-container');
+    if (!container) return;
+
+    // ### 被 _md() 渲染为 <h4>，## 被渲染为 <h3>
+    var cardHeadings = container.querySelectorAll('h4');
+    var cardDefs = [];
+    for (var i = 0; i < cardHeadings.length; i++) {
+      var text = (cardHeadings[i].textContent || '').trim();
+      var match = text.match(/^知识卡片(\d+)[：:]\s*(.+)/);
+      if (match) {
+        cardDefs.push({ el: cardHeadings[i], num: match[1], title: match[2] });
+      }
+    }
+    if (cardDefs.length === 0) return;
+
+    for (var ci = 0; ci < cardDefs.length; ci++) {
+      var def = cardDefs[ci];
+      var headingEl = def.el;
+
+      // 创建卡片容器
+      var card = document.createElement('div');
+      card.className = 'knowledge-card';
+
+      // 标题栏
+      var header = document.createElement('div');
+      header.className = 'kc-header';
+      header.innerHTML = '<span class="kc-num">' + def.num + '</span><span>' + this._e(def.title) + '</span>';
+
+      // 主体：收集 heading 之后、下一个 h2/h3/h4 之前的所有兄弟节点
+      var body = document.createElement('div');
+      body.className = 'kc-body';
+      var next = headingEl.nextSibling;
+      while (next) {
+        var nextToCheck = next.nextSibling;
+        if (next.nodeType === 1) {
+          var tag = next.tagName;
+          // h2/h3 是章节标题（如 "## 简答考点" → h3），遇到即停止
+          if (tag === 'H2' || tag === 'H3') break;
+          // 遇到下一个知识卡片（h4）也停止
+          if (tag === 'H4') {
+            var ntext = (next.textContent || '').trim();
+            if (/^知识卡片\d+/.test(ntext)) break;
+          }
+        }
+        body.appendChild(next);
+        next = nextToCheck;
+      }
+
+      // 组装
+      headingEl.parentNode.insertBefore(card, headingEl);
+      card.appendChild(header);
+      card.appendChild(body);
+      headingEl.parentNode.removeChild(headingEl);
+    }
+
+    // 美化"一句话结论"——找到对应的 strong，将其及后续内容包入绿色框
+    var bodies = container.querySelectorAll('.kc-body');
+    for (var bi = 0; bi < bodies.length; bi++) {
+      var bodyEl = bodies[bi];
+      var strongs2 = bodyEl.querySelectorAll('strong');
+      for (var si = 0; si < strongs2.length; si++) {
+        var s2 = strongs2[si];
+        if (s2.closest('pre, table, .mermaid, .code-block-wrapper, .kc-conclusion')) continue;
+        if ((s2.textContent || '').indexOf('一句话结论') === -1) continue;
+
+        // 收集 strong 及其后的兄弟节点，直到下一个 strong 或 br*2
+        var wrapper = document.createElement('div');
+        wrapper.className = 'kc-conclusion';
+        s2.parentNode.insertBefore(wrapper, s2);
+        wrapper.appendChild(s2);
+        var nxt = wrapper.nextSibling;
+        while (nxt) {
+          var nextNext = nxt.nextSibling;
+          if (nxt.nodeType === 1) {
+            var ntag = nxt.tagName;
+            // 遇到下一个 strong、h4、div.mermaid 就停
+            if (ntag === 'STRONG' || ntag === 'H4' || ntag === 'DIV') break;
+          }
+          // 文本节点：如果包含连续换行（两个br）就停
+          if (nxt.nodeType === 3 && (nxt.textContent || '').indexOf('\n\n') !== -1) break;
+          wrapper.appendChild(nxt);
+          nxt = nextNext;
+        }
+        break; // 每张卡片只有一个一句话结论
+      }
+      // 给知识卡片内的子标签加图标（strong 不在 p 内，_md() 不生成 p 标签）
+      var strongs = bodies[bi].querySelectorAll('strong');
+      for (var si = 0; si < strongs.length; si++) {
+        var s = strongs[si];
+        // 只处理直接文本标签，跳过代码块/表格内的 strong
+        if (s.closest('pre, table, .mermaid, .code-block-wrapper')) continue;
+        var label = (s.textContent || '').trim();
+        if (label.indexOf('概念定义') !== -1) s.innerHTML = '<span class="kc-section-icon">📖</span>' + s.innerHTML;
+        else if (label.indexOf('图解') !== -1) s.innerHTML = '<span class="kc-section-icon">📊</span>' + s.innerHTML;
+        else if (label.indexOf('具体示例') !== -1 || label.indexOf('示例') !== -1) s.innerHTML = '<span class="kc-section-icon">💡</span>' + s.innerHTML;
+      }
+    }
+  },
+
 };

@@ -98,17 +98,29 @@ const ExamMode = {
         }
       }
     } else {
-      // 无用户题型 → 均匀覆盖所有题型
-      const types = Object.keys(typeGroups);
-      const perType = Math.max(2, Math.floor(maxQ / types.length));
-      for (const t of types) {
-        const pool = typeGroups[t] || [];
-        let added = 0;
-        for (const q of pool) {
-          if (added >= perType) break;
-          if (!selected.find(s => s.id === q.id)) {
-            selected.push(q);
-            added++;
+      // 无用户题型 → 前 5 道必须为选择题，其余均匀覆盖其他题型，总分 100
+      var choicePool = typeGroups['choice'] || [];
+      var otherTypes = Object.keys(typeGroups).filter(function(t) { return t !== 'choice'; });
+
+      // 1) 优先选 5 道选择题
+      var choiceCount = Math.min(5, choicePool.length, maxQ);
+      for (var ci = 0; ci < choiceCount && ci < choicePool.length; ci++) {
+        selected.push(choicePool[ci]);
+      }
+
+      // 2) 其余题量均匀分配给其他题型
+      var remaining = maxQ - selected.length;
+      if (remaining > 0 && otherTypes.length > 0) {
+        var perOther = Math.max(1, Math.floor(remaining / otherTypes.length));
+        var extra = remaining - perOther * otherTypes.length;
+        for (var oti = 0; oti < otherTypes.length; oti++) {
+          var pool = typeGroups[otherTypes[oti]] || [];
+          var need = perOther + (oti < extra ? 1 : 0);
+          for (var pj = 0; pj < pool.length && need > 0; pj++) {
+            if (!selected.find(function(s) { return s.id === pool[pj].id; })) {
+              selected.push(pool[pj]);
+              need--;
+            }
           }
         }
       }
@@ -148,6 +160,25 @@ const ExamMode = {
         const pts = Math.round(score / count);
         const matched = selected.filter(q => q.type === enType);
         matched.forEach(q => { q.points = pts; });
+      }
+    }
+
+    // 无用户题型时：总分归一化为 100，按题型权重分配分数
+    if (Object.keys(types).length === 0 && selected.length > 0) {
+      // 题型分数权重：大题值钱，选择题便宜
+      var pointWeights = { choice: 2, tf: 2, multi: 3, fill: 3, code_fill: 4, short_answer: 5, calc: 8, essay: 15, proof: 10 };
+      var totalWeight = 0;
+      selected.forEach(function(q) {
+        totalWeight += pointWeights[q.type] || 3;
+      });
+      var scale = 100 / totalWeight;
+      selected.forEach(function(q) {
+        q.points = Math.round(scale * (pointWeights[q.type] || 3));
+      });
+      // 微调确保总分正好 100
+      var actualTotal = selected.reduce(function(s, q) { return s + (q.points || 0); }, 0);
+      if (actualTotal !== 100 && selected.length > 0) {
+        selected[0].points += (100 - actualTotal);
       }
     }
 
