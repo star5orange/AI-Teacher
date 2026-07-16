@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Teacher · 个人学习控制台</title>
+<style>
+{{ inline_css | safe }}
+
+/* === Dashboard Layout === */
+body {
+  max-width: 780px;
+  margin: auto;
+  padding: 20px 16px 60px;
+}
+
+/* ── Header ── */
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  margin-bottom: 8px;
+}
+.dash-header .brand {
+  font-size: 1.3em;
+  font-weight: 700;
+  color: #1a1a2e;
+}
+.dash-header .nav-links {
+  display: flex;
+  gap: 16px;
+  font-size: 0.85em;
+}
+.dash-header .nav-links a {
+  color: var(--ink-light);
+  text-decoration: none;
+  padding: 4px 0;
+  border-bottom: 2px solid transparent;
+  transition: all 0.15s;
+}
+.dash-header .nav-links a:hover,
+.dash-header .nav-links a.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+.dash-divider {
+  border: none;
+  border-top: 2px solid var(--divider);
+  margin: 0 0 20px 0;
+}
+
+/* ── Two Cards ── */
+.cards-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+@media (max-width: 600px) {
+  .cards-row { grid-template-columns: 1fr; }
+}
+.gen-card {
+  background: var(--card-bg);
+  border: 2px solid var(--card-border);
+  border-radius: 12px;
+  padding: 20px 18px;
+  cursor: pointer;
+  transition: all 0.15s;
+  text-decoration: none;
+  color: var(--ink);
+  display: block;
+}
+.gen-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 12px rgba(37, 99, 235, 0.08);
+  transform: translateY(-1px);
+}
+.gen-card .card-icon { font-size: 1.8em; margin-bottom: 8px; }
+.gen-card .card-title { font-size: 1.1em; font-weight: 700; margin-bottom: 4px; }
+.gen-card .card-desc { font-size: 0.82em; color: var(--ink-light); line-height: 1.6; }
+
+/* ── Profile Summary ── */
+.section-title {
+  font-size: 1em;
+  font-weight: 700;
+  color: var(--ink);
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.section-title .edit-link {
+  font-size: 0.78em;
+  font-weight: 400;
+  color: var(--accent);
+  text-decoration: none;
+}
+.section-title .edit-link:hover { text-decoration: underline; }
+.profile-summary {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 14px 18px;
+  margin-bottom: 24px;
+  font-size: 0.88em;
+  line-height: 1.8;
+}
+.profile-summary .label { color: var(--ink-light); font-weight: 600; }
+.profile-summary .tag {
+  display: inline-block;
+  padding: 1px 8px;
+  border-radius: 3px;
+  font-size: 0.85em;
+  margin: 1px 2px;
+}
+.tag-known { background: #dbeafe; color: #1e40af; }
+.tag-confused { background: #fee2e2; color: #991b1b; }
+.tag-learned { background: #d1fae5; color: #065f46; }
+.profile-empty {
+  color: var(--ink-light);
+  font-size: 0.85em;
+}
+.profile-empty a {
+  color: var(--accent);
+  text-decoration: none;
+}
+.profile-empty a:hover { text-decoration: underline; }
+
+/* ── History List ── */
+.history-table {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.history-table .row {
+  display: grid;
+  grid-template-columns: 90px 80px 1fr 80px;
+  gap: 8px;
+  padding: 10px 16px;
+  align-items: center;
+  font-size: 0.85em;
+  border-bottom: 1px solid var(--divider);
+}
+.history-table .row:last-child { border-bottom: none; }
+.history-table .header-row {
+  background: #f8fafc;
+  font-weight: 700;
+  color: var(--ink-light);
+  font-size: 0.8em;
+}
+.mode-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+.mode-exam { background: #dbeafe; color: #1e40af; }
+.mode-quick { background: #d1fae5; color: #065f46; }
+.status-done { color: #22c55e; }
+.status-pending { color: #f59e0b; }
+.status-failed { color: #ef4444; }
+.history-empty {
+  text-align: center;
+  padding: 40px;
+  color: var(--ink-light);
+  font-size: 0.9em;
+}
+.row .action-links a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85em;
+  margin-right: 8px;
+}
+.row .action-links a.danger { color: #ef4444; }
+.row .action-links a:hover { text-decoration: underline; }
+
+/* ── Stats bar ── */
+.stats-bar {
+  font-size: 0.8em;
+  color: var(--ink-light);
+  margin-bottom: 6px;
+}
+</style>
+</head>
+<body>
+
+<div class="dash-header">
+  <div class="brand">🏠 AI Teacher</div>
+  <div class="nav-links">
+    <a href="/" class="active">首页</a>
+    <a href="/generate/exam">期末冲刺</a>
+    <a href="/generate/quick">快速学习</a>
+    <a href="/profile">画像</a>
+    <a href="/history">历史</a>
+  </div>
+</div>
+<hr class="dash-divider">
+
+<!-- 两张生成卡片 -->
+<div class="cards-row">
+  <a href="/generate/exam" class="gen-card">
+    <div class="card-icon">📚</div>
+    <div class="card-title">期末冲刺</div>
+    <div class="card-desc">上传课件/真题/教材 → 自动生成知识树 + 题库 + 模拟考页面</div>
+  </a>
+  <a href="/generate/quick" class="gen-card">
+    <div class="card-icon">🚀</div>
+    <div class="card-title">快速学习</div>
+    <div class="card-desc">输入技术名词 → 自动穷举知识地图 → 生成定制化学习手册</div>
+  </a>
+</div>
+
+<!-- 学习者画像摘要 -->
+<div class="section-title">
+  👤 我的学习者画像
+  <a href="/profile" class="edit-link">编辑 →</a>
+</div>
+<div class="profile-summary">
+  {% if profile and (profile.get("known") or profile.get("confused") or profile.get("learned")) %}
+    {% if profile.get("language") %}
+      <span class="label">语言：</span>
+      <span class="tag tag-known">{{ profile.language }}</span><br>
+    {% endif %}
+    {% if profile.get("direction") %}
+      <span class="label">方向：</span>{{ profile.direction }}<br>
+    {% endif %}
+    {% if profile.get("known") %}
+      <span class="label">熟悉：</span>
+      {% for k in profile.known %}
+        <span class="tag tag-known">{{ k }}</span>
+      {% endfor %}<br>
+    {% endif %}
+    {% if profile.get("confused") %}
+      <span class="label">困惑：</span>
+      {% for c in profile.confused %}
+        <span class="tag tag-confused">{{ c }}</span>
+      {% endfor %}<br>
+    {% endif %}
+    {% if profile.get("learned") %}
+      <span class="label">已学：</span>
+      {% for l in profile.learned %}
+        <span class="tag tag-learned">{{ l.get("topic", l) }}</span>
+      {% endfor %}
+    {% endif %}
+  {% else %}
+    <span class="profile-empty">
+      还没有设置画像。<a href="/profile">花 2 分钟设置一下 →</a>，让生成内容更懂你。
+    </span>
+  {% endif %}
+</div>
+
+<!-- 历史记录 -->
+<div class="section-title">
+  📦 已生成的内容
+  <span style="font-size:0.75em;font-weight:400;color:var(--ink-light);">
+    ({{ stats.total }} 次生成 · {{ stats.exam_count }} 期末 · {{ stats.quick_count }} 快速学习)
+  </span>
+</div>
+
+{% if history %}
+<div class="history-table">
+  <div class="row header-row">
+    <div>日期</div>
+    <div>类型</div>
+    <div>主题</div>
+    <div>操作</div>
+  </div>
+  {% for h in history %}
+  <div class="row">
+    <div style="font-size:0.82em;color:var(--ink-light);">
+      {{ h.created_at[:10] if h.created_at else '?' }}
+    </div>
+    <div>
+      {% if h.mode == 'exam_sprint' %}
+        <span class="mode-badge mode-exam">期末冲刺</span>
+      {% else %}
+        <span class="mode-badge mode-quick">快速学习</span>
+      {% endif %}
+    </div>
+    <div>
+      {{ h.topic }}
+      {% if h.status == 'done' %}
+        <span class="status-done">✓</span>
+      {% elif h.status == 'pending' or h.status == 'running' %}
+        <span class="status-pending">⏳</span>
+      {% elif h.status == 'failed' %}
+        <span class="status-failed">✗</span>
+      {% endif %}
+    </div>
+    <div class="action-links">
+      {% if h.status == 'done' and h.html_path %}
+        <a href="/output/{{ h.html_path | replace('output/', '') | replace('output\\', '') }}" target="_blank">打开</a>
+      {% endif %}
+      <a href="javascript:void(0)" class="danger" onclick="deleteHistory({{ h.id }})">删除</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="history-empty">
+  还没有生成过内容。点击上方卡片开始吧 👆
+</div>
+{% endif %}
+
+<script>
+async function deleteHistory(id) {
+  if (!confirm('确定删除这条记录？')) return;
+  try {
+    await fetch('/api/history/' + id, { method: 'DELETE' });
+    location.reload();
+  } catch(e) {
+    alert('删除失败：' + e.message);
+  }
+}
+</script>
+
+</body>
+</html>

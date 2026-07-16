@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>学习者画像 · AI Teacher</title>
+<style>
+{{ inline_css | safe }}
+body { max-width: 640px; margin: auto; padding: 20px 16px 60px; }
+.dash-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; margin-bottom: 8px;
+}
+.dash-header .brand { font-size: 1.3em; font-weight: 700; color: #1a1a2e; }
+.dash-header .nav-links { display: flex; gap: 16px; font-size: 0.85em; }
+.dash-header .nav-links a {
+  color: var(--ink-light); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.dash-header .nav-links a:hover, .dash-header .nav-links a.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+.dash-divider { border: none; border-top: 2px solid var(--divider); margin: 0 0 24px 0; }
+
+.page-title { font-size: 1.2em; font-weight: 700; margin-bottom: 4px; }
+.page-desc { font-size: 0.85em; color: var(--ink-light); margin-bottom: 20px; line-height: 1.6; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 0.9em; font-weight: 600;
+  color: var(--ink); margin-bottom: 4px;
+}
+.form-group .hint { font-size: 0.75em; color: var(--ink-light); margin-bottom: 4px; }
+.form-group input, .form-group textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--card-border); border-radius: 8px;
+  font-size: 0.9em; font-family: inherit;
+  background: #fff; color: var(--ink);
+  transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+
+.save-btn {
+  width: 100%; padding: 12px;
+  background: #2c3e6b; color: #fff;
+  border: none; border-radius: 8px; font-size: 1em; font-weight: 600;
+  cursor: pointer; margin-top: 22px; transition: background 0.15s;
+}
+.save-btn:hover { background: #1a2744; }
+.save-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+.save-status {
+  display: none; text-align: center; padding: 10px;
+  border-radius: 8px; margin-top: 12px; font-size: 0.9em;
+}
+.save-status.success { display: block; background: #e8f5e9; color: #2e7d32; }
+.save-status.failed { display: block; background: #fef2f2; color: #991b1b; }
+
+.back-link { font-size: 0.82em; margin-bottom: 16px; }
+.back-link a { color: var(--ink-light); text-decoration: none; }
+.back-link a:hover { color: var(--accent); }
+
+.export-link {
+  font-size: 0.82em; color: var(--accent); cursor: pointer; text-decoration: underline;
+  margin-left: 8px;
+}
+</style>
+</head>
+<body>
+
+<div class="dash-header">
+  <div class="brand">🏠 AI Teacher</div>
+  <div class="nav-links">
+    <a href="/">首页</a>
+    <a href="/generate/exam">期末冲刺</a>
+    <a href="/generate/quick">快速学习</a>
+    <a href="/profile" class="active">画像</a>
+    <a href="/history">历史</a>
+  </div>
+</div>
+<hr class="dash-divider">
+
+<div class="back-link"><a href="/">← 返回首页</a></div>
+<div class="page-title">👤 学习者画像</div>
+<div class="page-desc">
+  这个画像会在你每次生成学习手册时自动带入，让内容更贴合你的背景。<br>
+  填写越详细，生成越精准。<span class="export-link" onclick="exportProfile()">导出JSON</span>
+</div>
+
+<form id="profile-form">
+  <div class="form-group">
+    <label>最熟悉的编程语言/技术</label>
+    <div class="hint">会什么写什么，用逗号或空格分隔</div>
+    <input type="text" id="language" placeholder="如：Python, JavaScript" value="{{ profile.get('language', '') }}">
+  </div>
+
+  <div class="form-group">
+    <label>目前主要方向</label>
+    <div class="hint">如：Web 后端、前端、移动端、AI/ML</div>
+    <input type="text" id="direction" placeholder="如：Web 后端" value="{{ profile.get('direction', '') }}">
+  </div>
+
+  <div class="form-group">
+    <label>已掌握的技术 / 概念</label>
+    <div class="hint">用逗号或空格分隔，如：Python HTTP REST ORM 数据库 Git</div>
+    <textarea id="known" rows="2" placeholder="如：Python HTTP REST ORM 数据库 Git">{{ profile.get('known', []) | join(', ') }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label>一直没搞懂的概念（困惑点）</label>
+    <div class="hint">这些概念生成时会放慢节奏、多给类比</div>
+    <textarea id="confused" rows="2" placeholder="如：异步编程 WebSocket Docker 中间件">{{ profile.get('confused', []) | join(', ') }}</textarea>
+  </div>
+
+  <div class="form-group">
+    <label>已经学过的技术（每行一个，格式：技术名,日期,深度）</label>
+    <div class="hint">
+      例：Django,2026-06,practical<br>
+      FastAPI,2026-07,balanced<br>
+      新学习时会自动对比已学技术
+    </div>
+    <textarea id="learned" rows="3" placeholder="Django,2026-06,practical">{% for l in profile.get('learned', []) %}{{ l.get('topic', l) }},{{ l.get('date', '') }},{{ l.get('depth', '') }}
+{% endfor %}</textarea>
+  </div>
+
+  <button type="submit" class="save-btn" id="save-btn">保存画像</button>
+</form>
+
+<div class="save-status" id="save-status"></div>
+
+<script>
+// 当前画像数据
+const currentProfile = {{ profile | tojson if profile else '{}' }};
+
+document.getElementById('profile-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+
+  const btn = document.getElementById('save-btn');
+  btn.disabled = true;
+  btn.textContent = '保存中...';
+
+  // 解析各字段
+  function parseList(text) {
+    if (!text || !text.trim()) return [];
+    return text.split(/[,，\n]+/).map(s => s.trim()).filter(Boolean);
+  }
+
+  function parseLearned(text) {
+    if (!text || !text.trim()) return [];
+    const results = [];
+    const lines = text.trim().split('\n');
+    for (const line of lines) {
+      const parts = line.split(',').map(s => s.trim());
+      if (parts[0]) {
+        results.push({
+          topic: parts[0],
+          date: parts[1] || '',
+          depth: parts[2] || 'balanced',
+        });
+      }
+    }
+    return results;
+  }
+
+  const profile = {
+    language: document.getElementById('language').value.trim(),
+    direction: document.getElementById('direction').value.trim(),
+    known: parseList(document.getElementById('known').value),
+    confused: parseList(document.getElementById('confused').value),
+    learned: parseLearned(document.getElementById('learned').value),
+    updated_at: new Date().toISOString(),
+  };
+
+  const statusEl = document.getElementById('save-status');
+  try {
+    const resp = await fetch('/api/profile', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(profile),
+    });
+    const result = await resp.json();
+    if (result.ok) {
+      statusEl.className = 'save-status success';
+      statusEl.textContent = '✅ 画像已保存！下次生成内容时会自动使用。';
+    } else {
+      statusEl.className = 'save-status failed';
+      statusEl.textContent = '❌ 保存失败';
+    }
+  } catch(e) {
+    statusEl.className = 'save-status failed';
+    statusEl.textContent = '❌ 保存失败：' + e.message;
+  }
+  btn.disabled = false;
+  btn.textContent = '保存画像';
+
+  // 3 秒后隐藏状态
+  setTimeout(() => { statusEl.className = 'save-status'; }, 3000);
+});
+
+function exportProfile() {
+  const blob = new Blob([JSON.stringify(currentProfile, null, 2)], {type: 'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'ai_teacher_profile.json';
+  a.click();
+}
+</script>
+
+</body>
+</html>

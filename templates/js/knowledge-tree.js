@@ -840,14 +840,31 @@ const KnowledgeTree = {
     if (!container) return;
 
     // ### 被 _md() 渲染为 <h4>，## 被渲染为 <h3>
-    var cardHeadings = container.querySelectorAll('h4');
+    // 排除已知的章节标题模式，其余 h4 均视为知识卡片
+    var sectionKeywords = ['学习目标', '核心知识卡片', '公式速览', '简答考点', '易错点', '章内链路', '重要公式'];
+    var allH4s = container.querySelectorAll('h4');
     var cardDefs = [];
-    for (var i = 0; i < cardHeadings.length; i++) {
-      var text = (cardHeadings[i].textContent || '').trim();
-      var match = text.match(/^知识卡片(\d+)[：:]\s*(.+)/);
-      if (match) {
-        cardDefs.push({ el: cardHeadings[i], num: match[1], title: match[2] });
+    for (var i = 0; i < allH4s.length; i++) {
+      var h4 = allH4s[i];
+      var text = (h4.textContent || '').trim();
+      // 跳过章节标题
+      var isSection = false;
+      for (var sk = 0; sk < sectionKeywords.length; sk++) {
+        if (text.indexOf(sectionKeywords[sk]) === 0) { isSection = true; break; }
       }
+      if (isSection) continue;
+      // 提取编号和标题
+      var match = text.match(/^知识卡片(\d+)[：:]\s*(.+)/);
+      var num, title;
+      if (match) {
+        num = match[1];
+        title = match[2];
+      } else {
+        // 无编号格式：去掉可能的前缀 emoji/图标
+        num = String(i + 1);
+        title = text.replace(/^[📖📊💡✅⚠️🔗📋🎯⭐●◆■▲▼]\s*/, '').replace(/^知识点[：:]\s*/, '');
+      }
+      cardDefs.push({ el: h4, num: num, title: title });
     }
     if (cardDefs.length === 0) return;
 
@@ -855,14 +872,30 @@ const KnowledgeTree = {
       var def = cardDefs[ci];
       var headingEl = def.el;
 
+      // 找到所属章节索引
+      var chapterIdx = -1;
+      var p = headingEl.parentNode;
+      while (p) {
+        if (p.id && p.id.indexOf('ch-') === 0) {
+          chapterIdx = parseInt(p.id.replace('ch-', ''));
+          break;
+        }
+        p = p.parentNode;
+      }
+      var favKey = 'ch' + (chapterIdx >= 0 ? chapterIdx : 'x') + '_card' + def.num;
+      var isFaved = CardFav.isFaved(favKey);
+
       // 创建卡片容器
       var card = document.createElement('div');
       card.className = 'knowledge-card';
+      card.setAttribute('data-fav-key', favKey);
+      if (!isFaved && CardFav._filterOn) card.style.display = 'none';
 
-      // 标题栏
+      // 标题栏（含收藏按钮）
       var header = document.createElement('div');
       header.className = 'kc-header';
-      header.innerHTML = '<span class="kc-num">' + def.num + '</span><span>' + this._e(def.title) + '</span>';
+      header.innerHTML = '<span class="kc-num">' + def.num + '</span><span class="kc-title-text">' + this._e(def.title) + '</span>'
+        + '<button class="kc-fav-btn' + (isFaved ? ' faved' : '') + '" title="' + (isFaved ? '取消收藏' : '收藏') + '" data-fav-key="' + favKey + '">' + (isFaved ? '⭐' : '☆') + '</button>';
 
       // 主体：收集 heading 之后、下一个 h2/h3/h4 之前的所有兄弟节点
       var body = document.createElement('div');
@@ -879,6 +912,13 @@ const KnowledgeTree = {
             var ntext = (next.textContent || '').trim();
             if (/^知识卡片\d+/.test(ntext)) break;
           }
+          // 非卡片内容：笔记区域、章节示例等不应被吞进卡片
+          if (next.classList && (
+              next.classList.contains('notes-section') ||
+              next.classList.contains('chapter-example') ||
+              next.classList.contains('notes-editor')
+          )) break;
+          if (next.id && next.id.indexOf('notes-') === 0) break;
         }
         body.appendChild(next);
         next = nextToCheck;
@@ -921,18 +961,139 @@ const KnowledgeTree = {
         }
         break; // 每张卡片只有一个一句话结论
       }
-      // 给知识卡片内的子标签加图标（strong 不在 p 内，_md() 不生成 p 标签）
+      // 给知识卡片内的子标签加图标
       var strongs = bodies[bi].querySelectorAll('strong');
       for (var si = 0; si < strongs.length; si++) {
         var s = strongs[si];
-        // 只处理直接文本标签，跳过代码块/表格内的 strong
         if (s.closest('pre, table, .mermaid, .code-block-wrapper')) continue;
-        var label = (s.textContent || '').trim();
-        if (label.indexOf('概念定义') !== -1) s.innerHTML = '<span class="kc-section-icon">📖</span>' + s.innerHTML;
-        else if (label.indexOf('图解') !== -1) s.innerHTML = '<span class="kc-section-icon">📊</span>' + s.innerHTML;
-        else if (label.indexOf('具体示例') !== -1 || label.indexOf('示例') !== -1) s.innerHTML = '<span class="kc-section-icon">💡</span>' + s.innerHTML;
+
+        var rawText = (s.textContent || '').trim();
+        // 检查 strong 内部或紧邻前面的文本节点是否已有图标
+        var prevSibling = s.previousSibling;
+        var prevHasIcon = prevSibling && prevSibling.nodeType === 3 && /^[📖📊💡✅⚠️🔗📋🎯⭐]/.test(prevSibling.textContent.trim());
+        var selfHasIcon = /^[📖📊💡✅⚠️🔗📋🎯⭐]/.test(rawText);
+
+        // 清理 strong 前面文本节点里 LLM 自带的图标（避免双图标）
+        if (prevHasIcon && prevSibling.nodeType === 3) {
+          prevSibling.textContent = prevSibling.textContent.replace(/^[📖📊💡✅⚠️🔗📋🎯⭐]\s*/, '');
+          if (!prevSibling.textContent.trim()) prevSibling.remove();
+        }
+
+        // 如果 strong 内部已有图标就跳过
+        if (selfHasIcon) continue;
+
+        // 加图标
+        var label = rawText;
+        if (label.indexOf('概念定义') !== -1) s.innerHTML = '<span class="kc-section-icon">📖</span> ' + s.innerHTML;
+        else if (label.indexOf('图解') !== -1) s.innerHTML = '<span class="kc-section-icon">📊</span> ' + s.innerHTML;
+        else if (label.indexOf('具体示例') !== -1 || label.indexOf('示例') !== -1) s.innerHTML = '<span class="kc-section-icon">💡</span> ' + s.innerHTML;
       }
+    }
+
+    // 收藏星标点击（事件委托）
+    container.querySelectorAll('.kc-fav-btn').forEach(function(btn) {
+      btn.addEventListener('click', function(e) {
+        e.stopPropagation();
+        var key = btn.getAttribute('data-fav-key');
+        var isNowFaved = CardFav.toggle(key);
+        btn.className = 'kc-fav-btn' + (isNowFaved ? ' faved' : '');
+        btn.innerHTML = isNowFaved ? '⭐' : '☆';
+        btn.title = isNowFaved ? '取消收藏' : '收藏';
+        CardFav._updateFilterBar();
+      });
+      btn.addEventListener('dblclick', function(e) {
+        e.stopPropagation();
+      });
+    });
+
+    // 插入收藏筛选条（放在第一个章节之前）
+    var firstChapter = container.querySelector('[id^="ch-"]');
+    var filterBar = document.createElement('div');
+    filterBar.className = 'fav-filter-bar';
+    filterBar.id = 'fav-filter-bar';
+    filterBar.innerHTML = '<span style="font-weight:600;">筛选：</span>'
+      + '<button class="fav-filter-btn active" data-filter="all">全部</button>'
+      + '<button class="fav-filter-btn" data-filter="faved">⭐ 收藏</button>'
+      + '<span class="fav-count"></span>';
+    if (firstChapter && firstChapter.parentNode) {
+      firstChapter.parentNode.insertBefore(filterBar, firstChapter);
+    } else if (container.firstChild) {
+      container.insertBefore(filterBar, container.firstChild);
+    }
+    // 绑定筛选点击
+    filterBar.querySelectorAll('.fav-filter-btn').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        filterBar.querySelectorAll('.fav-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+        btn.classList.add('active');
+        CardFav._filterOn = (btn.getAttribute('data-filter') === 'faved');
+        CardFav._applyFilter();
+      });
+    });
+    CardFav._updateFilterBar();
+  },
+
+};
+
+// ── 收藏存储 ──
+var CardFav = {
+  _filterOn: false,
+
+  _storageKey: function() {
+    return 'ai_fav_' + (typeof CONFIG !== 'undefined' ? CONFIG.token : 'default');
+  },
+
+  _read: function() {
+    try {
+      return JSON.parse(localStorage.getItem(this._storageKey()) || '{}');
+    } catch(e) { return {}; }
+  },
+
+  _write: function(data) {
+    try {
+      localStorage.setItem(this._storageKey(), JSON.stringify(data));
+    } catch(e) {}
+  },
+
+  isFaved: function(key) {
+    return !!this._read()[key];
+  },
+
+  toggle: function(key) {
+    var data = this._read();
+    if (data[key]) {
+      delete data[key];
+      this._write(data);
+      return false;
+    } else {
+      data[key] = true;
+      this._write(data);
+      return true;
     }
   },
 
+  count: function() {
+    return Object.keys(this._read()).length;
+  },
+
+  _applyFilter: function() {
+    var cards = document.querySelectorAll('.knowledge-card');
+    cards.forEach(function(card) {
+      var key = card.getAttribute('data-fav-key');
+      if (CardFav._filterOn) {
+        card.style.display = CardFav.isFaved(key) ? '' : 'none';
+      } else {
+        card.style.display = '';
+      }
+    });
+  },
+
+  _updateFilterBar: function() {
+    var bar = document.getElementById('fav-filter-bar');
+    if (!bar) return;
+    var cnt = this.count();
+    var countEl = bar.querySelector('.fav-count');
+    if (countEl) {
+      countEl.textContent = cnt > 0 ? '已收藏 ' + cnt + ' 张' : '';
+    }
+  }
 };

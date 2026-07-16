@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>期末冲刺 · AI Teacher</title>
+<style>
+{{ inline_css | safe }}
+body { max-width: 600px; margin: auto; padding: 20px 16px 60px; }
+.dash-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; margin-bottom: 8px;
+}
+.dash-header .brand { font-size: 1.3em; font-weight: 700; color: #1a1a2e; }
+.dash-header .nav-links { display: flex; gap: 16px; font-size: 0.85em; }
+.dash-header .nav-links a {
+  color: var(--ink-light); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.dash-header .nav-links a:hover, .dash-header .nav-links a.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+.dash-divider { border: none; border-top: 2px solid var(--divider); margin: 0 0 24px 0; }
+
+.page-title { font-size: 1.2em; font-weight: 700; margin-bottom: 4px; }
+.page-desc { font-size: 0.85em; color: var(--ink-light); margin-bottom: 20px; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 0.9em; font-weight: 600;
+  color: var(--ink); margin-bottom: 4px;
+}
+.form-group .hint { font-size: 0.75em; color: var(--ink-light); margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--card-border); border-radius: 8px;
+  font-size: 0.9em; font-family: inherit;
+  background: #fff; color: var(--ink);
+  transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+
+/* File upload area */
+.upload-area {
+  border: 2px dashed #d0d7de; border-radius: 12px; padding: 24px;
+  text-align: center; cursor: pointer; transition: all 0.2s;
+}
+.upload-area:hover, .upload-area.dragover {
+  border-color: var(--accent); background: #f0f6ff;
+}
+.upload-area .icon { font-size: 2em; margin-bottom: 6px; }
+.upload-area .hint { font-size: 0.82em; color: #888; }
+#file-list { margin-top: 10px; font-size: 0.85em; }
+#file-list .file-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 5px 10px; background: #e8f5e9; border-radius: 6px; margin: 3px 0;
+}
+#file-list .file-item .name { flex: 1; color: #2e7d32; }
+#file-list .file-item .size { color: #888; font-size: 0.8em; }
+#file-list .file-item .remove { color: #c62828; cursor: pointer; font-weight: 700; }
+
+.submit-btn {
+  width: 100%; padding: 12px;
+  background: #2c3e6b; color: #fff;
+  border: none; border-radius: 8px; font-size: 1em; font-weight: 600;
+  cursor: pointer; margin-top: 22px; transition: background 0.15s;
+}
+.submit-btn:hover { background: #1a2744; }
+.submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+.back-link { font-size: 0.82em; margin-bottom: 16px; }
+.back-link a { color: var(--ink-light); text-decoration: none; }
+.back-link a:hover { color: var(--accent); }
+
+/* Status notification */
+.generating-status {
+  display: none; text-align: center; padding: 16px;
+  background: #fff8e1; border-radius: 8px; margin-top: 16px;
+  font-size: 0.9em; color: #8d6e00;
+}
+.generating-status.success { background: #e8f5e9; color: #2e7d32; }
+.generating-status.failed { background: #fef2f2; color: #991b1b; }
+</style>
+</head>
+<body>
+
+<div class="dash-header">
+  <div class="brand">🏠 AI Teacher</div>
+  <div class="nav-links">
+    <a href="/">首页</a>
+    <a href="/generate/exam" class="active">期末冲刺</a>
+    <a href="/generate/quick">快速学习</a>
+    <a href="/profile">画像</a>
+    <a href="/history">历史</a>
+  </div>
+</div>
+<hr class="dash-divider">
+
+<div class="back-link"><a href="/">← 返回首页</a></div>
+<div class="page-title">📚 期末冲刺</div>
+<div class="page-desc">上传课件、真题或教材 → 自动生成知识树 + 题库 + 模拟考页面</div>
+
+<!-- 方式 1：文件上传 -->
+<div class="upload-area" id="upload-area">
+  <div class="icon">📁</div>
+  <div style="font-size:0.9em;color:#333;">点击选择文件 或 拖拽到此处</div>
+  <div class="hint">支持 .pptx .pdf .docx .doc .jpg .png .txt，单文件 ≤20MB</div>
+  <input type="file" id="file-input" multiple accept=".pptx,.pdf,.docx,.doc,.jpg,.jpeg,.png,.txt" style="display:none;">
+</div>
+<div id="file-list"></div>
+
+<!-- 方式 2：已有资料目录 -->
+<div class="form-group" style="margin-top:16px;">
+  <label>已有资料目录（可选）</label>
+  <div class="hint">
+    如果资料已在 <code>uploads_pending/</code> 下，直接填目录名即可，
+    如 <code>四川大学_计算机组成原理_20260705_120000</code>
+  </div>
+  <input type="text" id="materials-dir" placeholder="留空则仅基于通用大纲生成">
+</div>
+
+<div class="form-group">
+  <label>课程名 *</label>
+  <input type="text" id="course" placeholder="如：计算机组成原理" required>
+</div>
+
+<div class="form-group">
+  <label>学校（可选）</label>
+  <input type="text" id="school" placeholder="如：四川大学">
+</div>
+
+<div class="form-group">
+  <label>考试题型（可选）</label>
+  <div class="hint">如：选择10*1=10分, 填空5*2=10分, 计算4*5=20分, 简答2*10=20分</div>
+  <input type="text" id="exam-format" placeholder="留空则自动判断">
+</div>
+
+<div class="form-group">
+  <label>有效天数</label>
+  <select id="days">
+    <option value="7">7 天</option>
+    <option value="14">14 天</option>
+    <option value="30" selected>30 天</option>
+    <option value="90">90 天</option>
+    <option value="180">180 天</option>
+  </select>
+</div>
+
+<button class="submit-btn" id="submit-btn" onclick="startGenerate()">开始生成</button>
+<div class="generating-status" id="status"></div>
+
+<script>
+let selectedFiles = [];
+const uploadArea = document.getElementById('upload-area');
+const fileInput = document.getElementById('file-input');
+
+uploadArea.addEventListener('click', () => fileInput.click());
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('dragover'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('dragover'));
+uploadArea.addEventListener('drop', e => {
+  e.preventDefault(); uploadArea.classList.remove('dragover'); addFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+function addFiles(files) {
+  for (const f of files) {
+    if (f.size > 20*1024*1024) { alert(f.name + ' 超过20MB限制'); continue; }
+    if (selectedFiles.find(x => x.name === f.name && x.size === f.size)) continue;
+    selectedFiles.push(f);
+  }
+  renderFiles();
+}
+
+function renderFiles() {
+  document.getElementById('file-list').innerHTML = selectedFiles.map((f, i) =>
+    '<div class="file-item">' +
+    '<span>📄</span><span class="name">' + f.name + '</span>' +
+    '<span class="size">' + (f.size/1024).toFixed(0) + 'KB</span>' +
+    '<span class="remove" onclick="removeFile(' + i + ')">✕</span>' +
+    '</div>'
+  ).join('');
+}
+
+function removeFile(i) { selectedFiles.splice(i, 1); renderFiles(); }
+
+async function startGenerate() {
+  const course = document.getElementById('course').value.trim();
+  if (!course) { alert('请填写课程名'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '正在提交...';
+
+  const statusEl = document.getElementById('status');
+  statusEl.style.display = 'block';
+  statusEl.className = 'generating-status';
+  statusEl.textContent = '⏳ 正在提交生成请求...';
+
+  const data = {
+    course: course,
+    school: document.getElementById('school').value.trim() || '通用',
+    exam_format: document.getElementById('exam-format').value.trim(),
+    days: parseInt(document.getElementById('days').value),
+    materials_dir: document.getElementById('materials-dir').value.trim(),
+  };
+
+  try {
+    // 如果有上传文件，先上传
+    if (selectedFiles.length > 0) {
+      const form = new FormData();
+      form.append('course', course);
+      form.append('school', data.school);
+      form.append('exam_format', data.exam_format);
+      for (const f of selectedFiles) form.append('files', f);
+      const uploadResp = await fetch('/api/upload', { method: 'POST', body: form });
+      const uploadData = await uploadResp.json();
+      if (uploadData.ok && uploadData.dir) {
+        data.materials_dir = uploadData.dir;
+      }
+    }
+
+    // 触发期末冲刺生成
+    const resp = await fetch('/api/generate/exam', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+
+    if (result.ok) {
+      statusEl.textContent = '⏳ 正在生成知识树和题库...';
+      statusEl.className = 'generating-status';
+      pollStatus(result.history_id, statusEl, btn);
+    } else {
+      statusEl.textContent = '❌ 提交失败：' + (result.error || '未知错误');
+      statusEl.className = 'generating-status failed';
+      btn.disabled = false;
+      btn.textContent = '重试';
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ 请求失败：' + e.message;
+    statusEl.className = 'generating-status failed';
+    btn.disabled = false;
+    btn.textContent = '重试';
+  }
+}
+
+var pollCount = 0;
+var MAX_POLL = 120;
+
+function pollStatus(historyId, statusEl, btn) {
+  pollCount++;
+  if (pollCount > MAX_POLL) {
+    statusEl.textContent = '⏳ 仍在生成中，请稍后在首页"已生成的内容"中查看。';
+    statusEl.className = 'generating-status';
+    btn.disabled = false;
+    btn.textContent = '重新生成';
+    return;
+  }
+
+  setTimeout(async function() {
+    try {
+      var resp = await fetch('/api/history/' + historyId + '/status');
+      var data = await resp.json();
+
+      if (data.status === 'done') {
+        statusEl.innerHTML = '✅ 生成完成！<br><a href="/output/' +
+          (data.html_path || '').replace('output/', '').replace('output\\\\', '') +
+          '" target="_blank" style="color:var(--accent);font-weight:700;">📖 打开刷题页面</a>' +
+          '<br><span style="font-size:0.8em;">（也可在<a href="/">首页</a>查看所有已生成内容）</span>';
+        statusEl.className = 'generating-status success';
+        btn.disabled = false;
+        btn.textContent = '再生成一份';
+      } else if (data.status === 'failed') {
+        statusEl.textContent = '❌ 生成失败：' + (data.error_msg || '未知错误');
+        statusEl.className = 'generating-status failed';
+        btn.disabled = false;
+        btn.textContent = '重试';
+      } else {
+        var dots = '.'.repeat((pollCount % 3) + 1);
+        statusEl.textContent = '⏳ 正在生成中' + dots + '（通常需要 2-10 分钟）';
+        pollStatus(historyId, statusEl, btn);
+      }
+    } catch(e) {
+      pollStatus(historyId, statusEl, btn);
+    }
+  }, 5000);
+}
+</script>
+
+</body>
+</html>

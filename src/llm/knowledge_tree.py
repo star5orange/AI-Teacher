@@ -187,10 +187,17 @@ def generate_review_guide(
             user_content=user_content[:15000],
         ) + chapter_hints,
         response_format="json",
-        max_tokens=16384,
+        max_tokens=32768,
     )
 
     parsed = result.get("parsed", {}) or {}
+    if not parsed or not parsed.get("chapters"):
+        print(f"   [WARN] 复习清单生成异常！")
+        print(f"   parsed type: {type(parsed)}, keys: {list(parsed.keys()) if isinstance(parsed, dict) else 'N/A'}")
+        raw = result.get("content", "")
+        print(f"   raw content length: {len(raw)}")
+        print(f"   raw content tail: ...{raw[-200:] if len(raw) > 200 else raw}")
+        print(f"   LLM finish_reason: {result.get('finish_reason', 'unknown')}")
     return {
         "review_guide": parsed,
         "cost": result.get("cost", 0),

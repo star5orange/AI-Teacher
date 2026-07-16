@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>{{ course }} · 学习手册 · AI Teacher</title>
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'],['\\(','\\)']], displayMath: [['$$','$$'],['\\[','\\]']] },
+  typesetPromise: function() { return Promise.resolve(); }
+};
+(function() {
+  var s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js';
+  s.onload = function() { if (MathJax.typesetPromise) MathJax.typesetPromise().catch(function(){}); };
+  document.head.appendChild(s);
+})();
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'neutral', securityLevel: 'loose' });</script>
+<style>
+{{ inline_css | safe }}
+
+/* === Quick Learn Layout === */
+body {
+  max-width: 820px;
+  margin: auto;
+  padding: 12px 16px 60px;
+}
+
+/* ── TL;DR Card ── */
+.tldr-card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 18px 22px;
+  margin-bottom: 18px;
+}
+.tldr-card .freshness-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 0.78em;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.fresh-stable { background: #d1fae5; color: #065f46; }
+.fresh-active { background: #fef3c7; color: #92400e; }
+.fresh-frontier { background: #fee2e2; color: #991b1b; }
+
+.tldr-card .tldr-oneliner {
+  font-size: 1.05em;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.tldr-card .tldr-section {
+  margin-bottom: 10px;
+  font-size: 0.9em;
+  line-height: 1.7;
+}
+.tldr-card .tldr-section strong {
+  color: var(--ink);
+}
+.tldr-card .tldr-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tldr-card .tldr-tag {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 3px;
+  font-size: 0.78em;
+  background: var(--tag-bg);
+  color: var(--tag-text);
+}
+
+/* ── Module Navigation ── */
+.module-nav {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.module-nav .nav-label {
+  font-size: 0.8em;
+  font-weight: 700;
+  color: var(--ink-light);
+  margin-right: 6px;
+}
+.module-nav button {
+  padding: 4px 12px;
+  border: 1px solid var(--card-border);
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.82em;
+  color: var(--ink-light);
+  transition: all 0.12s;
+}
+.module-nav button:hover { border-color: var(--accent); color: var(--accent); }
+.module-nav button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.module-nav button.completed {
+  border-color: #22c55e;
+  color: #22c55e;
+}
+
+/* ── Content area ── */
+.content-area {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 18px;
+}
+.content-area .section-title {
+  font-size: 1.1em;
+  font-weight: 700;
+  margin-bottom: 12px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--divider);
+}
+.content-area .why-block {
+  background: #fef3c7;
+  border-left: 3px solid #f59e0b;
+  padding: 8px 14px;
+  margin-bottom: 14px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.88em;
+  color: #92400e;
+}
+.content-area .concept-block {
+  margin-bottom: 14px;
+  line-height: 1.8;
+  font-size: 0.92em;
+}
+.content-area .how-block {
+  margin-bottom: 14px;
+}
+.content-area .how-block .step {
+  margin-bottom: 10px;
+  padding-left: 16px;
+  border-left: 2px solid var(--divider);
+}
+.content-area .example-block {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 0.88em;
+}
+.content-area .example-block pre {
+  margin: 8px 0 0 0;
+  padding: 10px 14px;
+  background: #1e293b;
+  color: #e2e8f0;
+  border-radius: 6px;
+  overflow-x: auto;
+  font-size: 0.9em;
+  line-height: 1.5;
+}
+.content-area .pitfalls-block {
+  margin-bottom: 14px;
+}
+.content-area .pitfall {
+  background: #fef2f2;
+  border-left: 3px solid #ef4444;
+  padding: 6px 12px;
+  margin-bottom: 6px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.87em;
+}
+.content-area .when-block {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  font-size: 0.87em;
+}
+.content-area .adaptation-note {
+  background: #f0f6ff;
+  border-left: 3px solid #3b82f6;
+  padding: 6px 12px;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.82em;
+  color: #1e40af;
+  margin-bottom: 12px;
+}
+
+/* ── Practice question ── */
+.practice-block {
+  margin-top: 16px;
+  padding-top: 12px;
+  border-top: 2px solid var(--divider);
+}
+.practice-block .q-type {
+  font-size: 0.78em;
+  color: var(--ink-light);
+  margin-bottom: 4px;
+}
+.practice-block .q-prompt {
+  font-size: 0.92em;
+  font-weight: 600;
+  margin-bottom: 10px;
+  line-height: 1.7;
+}
+.practice-block .checklist {
+  list-style: none;
+  padding: 0;
+  margin-bottom: 12px;
+}
+.practice-block .checklist li {
+  padding: 3px 0;
+  font-size: 0.85em;
+  color: var(--ink-light);
+}
+.practice-block .checklist li::before {
+  content: '☐ ';
+  color: var(--accent);
+}
+.practice-block .reference-answer {
+  margin-top: 8px;
+}
+.practice-block .reference-answer summary {
+  cursor: pointer;
+  font-size: 0.85em;
+  color: var(--accent);
+}
+
+/* ── Nav buttons ── */
+.section-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+.section-nav button {
+  padding: 8px 18px;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: var(--card-bg);
+  cursor: pointer;
+  font-size: 0.88em;
+  color: var(--ink);
+  transition: all 0.12s;
+}
+.section-nav button:hover { border-color: var(--accent); color: var(--accent); }
+.section-nav button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Cheat Sheet ── */
+.cheatsheet {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 18px 22px;
+}
+.cheatsheet h3 { margin: 0 0 12px 0; font-size: 1em; }
+.cheatsheet table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85em;
+}
+.cheatsheet th, .cheatsheet td {
+  padding: 6px 10px;
+  text-align: left;
+  border-bottom: 1px solid var(--divider);
+}
+.cheatsheet th {
+  background: #f8fafc;
+  font-weight: 600;
+  color: var(--ink-light);
+  font-size: 0.8em;
+}
+
+/* ── Review List ── */
+#review-panel { margin-top: 18px; }
+
+/* ── Responsive ── */
+@media (max-width: 600px) {
+  .content-area { padding: 14px 12px; }
+  .module-nav button { font-size: 0.75em; padding: 3px 8px; }
+}
+</style>
+</head>
+<body>
+
+<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;">
+  <span style="font-size:1.1em;font-weight:700;color:#1a1a2e;">📖 {{ course }}</span>
+  <span style="font-size:0.78em;color:#999;">AI Teacher · 学习手册</span>
+</div>
+<hr style="border:none;border-top:2px solid var(--divider);margin:4px 0 14px 0;">
+
+<!-- ── TL;DR Card ── -->
+{% if cheat_sheets and cheat_sheets[0] %}
+{% set tldr = cheat_sheets[0] %}
+<div class="tldr-card">
+  {% if tldr.get('freshness_level') %}
+  <span class="freshness-badge fresh-{{ tldr.freshness_level }}">
+    {{ {'stable':'🟢 稳定','active':'🟡 活跃','frontier':'🔴 前沿'}.get(tldr.freshness_level, '') }}
+  </span>
+  {% endif %}
+
+  <div class="tldr-oneliner">{{ tldr.get('oneliner', '') }}</div>
+
+  {% if tldr.get('what') %}
+  <div class="tldr-section"><strong>❓ 它解决什么问题</strong><br>{{ tldr.what }}</div>
+  {% endif %}
+
+  {% if tldr.get('when_to_use') %}
+  <div class="tldr-section"><strong>✅ 什么时候用它</strong><br>{{ tldr.when_to_use }}</div>
+  {% endif %}
+
+  {% if tldr.get('when_not_to_use') %}
+  <div class="tldr-section"><strong>❌ 什么时候不要用它</strong><br>{{ tldr.when_not_to_use }}</div>
+  {% endif %}
+
+  {% if tldr.get('vs') %}
+  <div class="tldr-section"><strong>🆚 与相关技术的关系</strong><br>{{ tldr.vs }}</div>
+  {% endif %}
+
+  {% if tldr.get('tags') %}
+  <div class="tldr-tags">
+    {% for tag in tldr.tags %}<span class="tldr-tag">{{ tag }}</span>{% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- ── Module Navigation ── -->
+<div class="module-nav" id="module-nav">
+  <span class="nav-label">📊 模块：</span>
+</div>
+
+<!-- ── Section Navigation ── -->
+<div class="section-nav">
+  <button id="btn-prev" onclick="navigateSection(-1)">← 上一节</button>
+  <span id="section-indicator" style="font-size:0.85em;color:var(--ink-light);"></span>
+  <button id="btn-next" onclick="navigateSection(1)">下一节 →</button>
+</div>
+
+<!-- ── Content ── -->
+<div class="content-area" id="content-area">
+  <div style="text-align:center;padding:40px;color:var(--ink-light);">
+    加载中...
+  </div>
+</div>
+
+<!-- ── Section Navigation (bottom) ── -->
+<div class="section-nav">
+  <button onclick="navigateSection(-1)">← 上一节</button>
+  <button onclick="navigateSection(1)">下一节 →</button>
+</div>
+
+<!-- ── Review Panel ── -->
+<div id="review-panel"></div>
+
+<!-- ── Cheat Sheet (bottom) ── -->
+{% if cheat_sheets and cheat_sheets|length > 1 %}
+<div class="cheatsheet" style="margin-top:18px;">
+  <h3>📋 速查表</h3>
+  {% for cs in cheat_sheets %}
+    {% if cs.get('commands') %}
+    <h4 style="font-size:0.9em;margin:12px 0 6px;">常用命令</h4>
+    <table>
+      <tr><th>命令</th><th>说明</th></tr>
+      {% for cmd in cs.commands %}
+      <tr><td><code>{{ cmd.command }}</code></td><td>{{ cmd.what_it_does }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+    {% if cs.get('key_syntax') %}
+    <h4 style="font-size:0.9em;margin:12px 0 6px;">关键语法</h4>
+    <table>
+      <tr><th>语法/API</th><th>说明</th></tr>
+      {% for ks in cs.key_syntax %}
+      <tr><td><code>{{ ks.syntax }}</code></td><td>{{ ks.note }}</td></tr>
+      {% endfor %}
+    </table>
+    {% endif %}
+  {% endfor %}
+</div>
+{% endif %}
+
+<script>
+// ====== 配置 ======
+var MODE = '{{ mode }}';
+var CONFIG = {
+  token: '{{ config.token }}',
+  course: '{{ config.course }}',
+  mode: '{{ mode }}',
+};
+var KNOWLEDGE_TREE = {{ knowledge_tree_json | safe }};
+var QUESTION_BANK = {{ question_bank_json | safe }};
+var REVIEW_GUIDE = {{ review_guide_json | safe }};
+var CHEAT_SHEETS = {{ cheat_sheets_json | safe }};
+
+// ====== 数据结构适配 ======
+function getAllSections() {
+  var sections = [];
+  var modules = REVIEW_GUIDE.modules_content || [];
+  for (var i = 0; i < modules.length; i++) {
+    var mod = modules[i];
+    var secs = mod.sections_content || [];
+    for (var j = 0; j < secs.length; j++) {
+      sections.push({
+        moduleId: mod.module_id,
+        moduleIndex: i,
+        sectionIndex: j,
+        sectionId: secs[j].section_id,
+        content: secs[j].content || {},
+        title: findSectionTitle(secs[j].section_id),
+        keyConcepts: findSectionConcepts(secs[j].section_id),
+      });
+    }
+  }
+  return sections;
+}
+
+function findSectionTitle(sectionId) {
+  var modules = KNOWLEDGE_TREE.modules || [];
+  for (var i = 0; i < modules.length; i++) {
+    var secs = modules[i].sections || [];
+    for (var j = 0; j < secs.length; j++) {
+      if (secs[j].id === sectionId) return secs[j].title || '';
+    }
+  }
+  return sectionId;
+}
+
+function findSectionConcepts(sectionId) {
+  var modules = KNOWLEDGE_TREE.modules || [];
+  for (var i = 0; i < modules.length; i++) {
+    var secs = modules[i].sections || [];
+    for (var j = 0; j < secs.length; j++) {
+      if (secs[j].id === sectionId) return secs[j].key_concepts || [];
+    }
+  }
+  return [];
+}
+
+function findModuleTitle(moduleId) {
+  var modules = KNOWLEDGE_TREE.modules || [];
+  for (var i = 0; i < modules.length; i++) {
+    if (modules[i].id === moduleId) return modules[i].title || moduleId;
+  }
+  return moduleId;
+}
+
+function findQuestionForSection(sectionId) {
+  var questions = REVIEW_GUIDE.global_practice_questions || [];
+  for (var i = 0; i < questions.length; i++) {
+    if (questions[i].section_id === sectionId) return questions[i];
+  }
+  return null;
+}
+
+// ====== 进度管理 ======
+var PROGRESS_KEY = 'ql_progress_' + (CONFIG.course || 'default');
+function loadProgress() {
+  try {
+    var raw = localStorage.getItem(PROGRESS_KEY);
+    return raw ? JSON.parse(raw) : { currentIndex: 0, completed: {} };
+  } catch(e) { return { currentIndex: 0, completed: {} }; }
+}
+function saveProgress(progress) {
+  try { localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress)); } catch(e) {}
+}
+function markSectionComplete(sectionId) {
+  var p = loadProgress();
+  p.completed[sectionId] = true;
+  saveProgress(p);
+  renderModuleNav();
+}
+
+// ====== 全局状态 ======
+var allSections = getAllSections();
+var currentIndex = loadProgress().currentIndex || 0;
+if (currentIndex >= allSections.length) currentIndex = 0;
+
+// ====== Module Navigation ======
+function renderModuleNav() {
+  var modules = KNOWLEDGE_TREE.modules || [];
+  var progress = loadProgress();
+  var html = '<span class="nav-label">📊 模块：</span>';
+
+  for (var i = 0; i < modules.length; i++) {
+    var mod = modules[i];
+    // 检查此模块是否所有 section 都已完成
+    var allDone = (mod.sections || []).every(function(s) {
+      return progress.completed[s.id];
+    });
+    var cls = 'module-nav-btn';
+    if (allDone) cls += ' completed';
+    var firstSection = findFirstSectionIndex(mod.id);
+    if (firstSection >= 0 && firstSection === currentIndex) cls += ' active';
+
+    html += '<button class="' + cls + '" onclick="jumpToModule(\'' + mod.id + '\')" title="' + (mod.why_this_matters || '') + '">';
+    html += (allDone ? '✓ ' : '') + mod.title;
+    html += '</button>';
+  }
+  document.getElementById('module-nav').innerHTML = html;
+}
+
+function findFirstSectionIndex(moduleId) {
+  for (var i = 0; i < allSections.length; i++) {
+    if (allSections[i].moduleId === moduleId) return i;
+  }
+  return -1;
+}
+
+function jumpToModule(moduleId) {
+  var idx = findFirstSectionIndex(moduleId);
+  if (idx >= 0) {
+    currentIndex = idx;
+    var p = loadProgress();
+    p.currentIndex = currentIndex;
+    saveProgress(p);
+    renderContent();
+    renderModuleNav();
+    updateNavButtons();
+  }
+}
+
+// ====== Markdown → HTML ======
+function renderMD(text) {
+  if (!text) return '';
+  var html = text;
+
+  // 保护已有的 HTML 代码块
+  var codeBlocks = [];
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, function(m, lang, code) {
+    codeBlocks.push('<pre><code class="language-' + (lang || 'plaintext') + '">' +
+      code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code></pre>');
+    return '%%CODEBLOCK_' + (codeBlocks.length - 1) + '%%';
+  });
+
+  // 保护内联代码
+  var inlineCodes = [];
+  html = html.replace(/`([^`]+)`/g, function(m, code) {
+    inlineCodes.push('<code>' + code.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</code>');
+    return '%%INLINECODE_' + (inlineCodes.length - 1) + '%%';
+  });
+
+  // 保护加粗
+  html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+
+  // 编号列表（连续的多行 "数字. " 开头）
+  html = html.replace(/((?:^|\n)\d+\.\s+[^\n]+(?:\n\d+\.\s+[^\n]+)*)/g, function(m) {
+    var items = m.trim().split(/\n(?=\d+\.\s)/);
+    var lis = items.map(function(item) {
+      return '<li>' + item.replace(/^\d+\.\s+/, '') + '</li>';
+    }).join('');
+    return '<ol>' + lis + '</ol>';
+  });
+
+  // 无序列表（连续的多行 "- " 开头）
+  html = html.replace(/((?:^|\n)-\s+[^\n]+(?:\n-\s+[^\n]+)*)/g, function(m) {
+    var items = m.trim().split(/\n(?=-\s)/);
+    var lis = items.map(function(item) {
+      return '<li>' + item.replace(/^-\s+/, '') + '</li>';
+    }).join('');
+    return '<ul>' + lis + '</ul>';
+  });
+
+  // 双换行 → 段落分隔
+  html = html.replace(/\n\n+/g, '</p><p>');
+
+  // 单换行 → <br>
+  html = html.replace(/\n/g, '<br>');
+
+  // 包裹在 <p> 中
+  html = '<p>' + html + '</p>';
+
+  // 清理空段落
+  html = html.replace(/<p>\s*<\/p>/g, '');
+  html = html.replace(/<p><br>\s*<\/p>/g, '');
+  html = html.replace(/<p><\/p>/g, '');
+
+  // 还原代码块
+  html = html.replace(/%%CODEBLOCK_(\d+)%%/g, function(m, i) {
+    return codeBlocks[parseInt(i)];
+  });
+
+  // 还原内联代码
+  html = html.replace(/%%INLINECODE_(\d+)%%/g, function(m, i) {
+    return inlineCodes[parseInt(i)];
+  });
+
+  return html;
+}
+
+// ====== Content Rendering ======
+function renderContent() {
+  if (allSections.length === 0) {
+    document.getElementById('content-area').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--ink-light);">暂无内容</div>';
+    return;
+  }
+
+  var section = allSections[currentIndex];
+  var content = section.content;
+  var question = findQuestionForSection(section.sectionId);
+
+  var html = '';
+
+  // Section title
+  html += '<div class="section-title">' +
+    (currentIndex + 1) + '/' + allSections.length + ' · ' +
+    findModuleTitle(section.moduleId) + ' › ' +
+    (section.title || section.sectionId) +
+    '</div>';
+
+  // Adaptation note
+  if (content.adaptation_note) {
+    html += '<div class="adaptation-note">💡 ' + renderMD(content.adaptation_note) + '</div>';
+  }
+
+  // Why
+  if (content.why) {
+    html += '<div class="why-block">' + renderMD(content.why) + '</div>';
+  }
+
+  // Concept
+  if (content.concept) {
+    html += '<div class="concept-block">' + renderMD(content.concept) + '</div>';
+  }
+
+  // How
+  if (content.how) {
+    html += '<div class="how-block">' + renderMD(content.how) + '</div>';
+  }
+
+  // Example
+  if (content.example) {
+    html += '<div class="example-block">' +
+      '<strong>📦 完整示例</strong>' +
+      renderMD(content.example) +
+      '</div>';
+  }
+
+  // Pitfalls
+  if (content.pitfalls && content.pitfalls.length > 0) {
+    html += '<div class="pitfalls-block"><strong>⚠️ 常见坑</strong>';
+    for (var i = 0; i < content.pitfalls.length; i++) {
+      html += '<div class="pitfall">' + renderMD(content.pitfalls[i]) + '</div>';
+    }
+    html += '</div>';
+  }
+
+  // When to use
+  if (content.when_to_use) {
+    html += '<div class="when-block">' +
+      '<strong>🎯 决策边界</strong><br>' +
+      renderMD(content.when_to_use) +
+      '</div>';
+  }
+
+  // Understanding check
+  if (question) {
+    var typeLabels = {explain:'解释', compare:'对比', implement:'实现', debug:'调试', design:'设计'};
+    html += '<div class="practice-block">';
+    html += '<div class="q-type">✅ 理解验证 · ' + (typeLabels[question.type] || question.type) + '</div>';
+    html += '<div class="q-prompt">' + renderMD(question.prompt) + '</div>';
+    if (question.checklist && question.checklist.length > 0) {
+      html += '<ul class="checklist">';
+      for (var j = 0; j < question.checklist.length; j++) {
+        html += '<li>' + question.checklist[j] + '</li>';
+      }
+      html += '</ul>';
+    }
+    if (question.reference_answer) {
+      html += '<details class="reference-answer">';
+      html += '<summary>查看参考答案</summary>';
+      html += '<div style="margin-top:8px;font-size:0.88em;">' + question.reference_answer + '</div>';
+      html += '</details>';
+    }
+    html += '</div>';
+  }
+
+  // Mark buttons
+  if (section.keyConcepts && section.keyConcepts.length > 0) {
+    html += '<div id="mark-buttons"></div>';
+  }
+
+  document.getElementById('content-area').innerHTML = html;
+
+  // Render mark buttons for first concept
+  if (section.keyConcepts && section.keyConcepts.length > 0) {
+    MarkButtons.render('mark-buttons', section.keyConcepts[0], section.sectionId, section.title || '');
+  }
+
+  updateNavButtons();
+
+  // Auto-mark as completed when viewing
+  markSectionComplete(section.sectionId);
+}
+
+// ====== Navigation ======
+function navigateSection(delta) {
+  var newIndex = currentIndex + delta;
+  if (newIndex < 0 || newIndex >= allSections.length) return;
+  currentIndex = newIndex;
+  var p = loadProgress();
+  p.currentIndex = currentIndex;
+  saveProgress(p);
+  renderContent();
+  renderModuleNav();
+}
+
+function updateNavButtons() {
+  document.getElementById('btn-prev').disabled = (currentIndex === 0);
+  document.getElementById('btn-next').disabled = (currentIndex >= allSections.length - 1);
+  document.getElementById('section-indicator').textContent =
+    (currentIndex + 1) + ' / ' + allSections.length;
+}
+
+// ====== Init ======
+function init() {
+  if (allSections.length === 0) {
+    document.getElementById('content-area').innerHTML =
+      '<div style="text-align:center;padding:40px;color:var(--ink-light);">' +
+      '学习手册内容为空。<br>请尝试重新生成。' +
+      '</div>';
+    return;
+  }
+  renderModuleNav();
+  updateNavButtons();
+  renderContent();
+  ReviewPanel.render('review-panel');
+}
+
+// Keyboard navigation
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'ArrowRight') navigateSection(1);
+  if (e.key === 'ArrowLeft') navigateSection(-1);
+});
+
+init();
+</script>
+
+</body>
+</html>

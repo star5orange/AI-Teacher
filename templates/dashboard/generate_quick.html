@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>快速学习 · AI Teacher</title>
+<style>
+{{ inline_css | safe }}
+body { max-width: 600px; margin: auto; padding: 20px 16px 60px; }
+.dash-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; margin-bottom: 8px;
+}
+.dash-header .brand { font-size: 1.3em; font-weight: 700; color: #1a1a2e; }
+.dash-header .nav-links { display: flex; gap: 16px; font-size: 0.85em; }
+.dash-header .nav-links a {
+  color: var(--ink-light); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.dash-header .nav-links a:hover, .dash-header .nav-links a.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+.dash-divider { border: none; border-top: 2px solid var(--divider); margin: 0 0 24px 0; }
+
+.page-title { font-size: 1.2em; font-weight: 700; margin-bottom: 4px; }
+.page-desc { font-size: 0.85em; color: var(--ink-light); margin-bottom: 20px; line-height: 1.6; }
+
+.form-group { margin-bottom: 16px; }
+.form-group label {
+  display: block; font-size: 0.9em; font-weight: 600;
+  color: var(--ink); margin-bottom: 4px;
+}
+.form-group .hint { font-size: 0.75em; color: var(--ink-light); margin-bottom: 4px; }
+.form-group input, .form-group select, .form-group textarea {
+  width: 100%; padding: 10px 12px;
+  border: 1px solid var(--card-border); border-radius: 8px;
+  font-size: 0.9em; font-family: inherit;
+  background: #fff; color: var(--ink);
+  transition: border-color 0.15s;
+}
+.form-group input:focus, .form-group textarea:focus {
+  outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px rgba(37,99,235,0.08);
+}
+.form-group textarea { resize: vertical; min-height: 60px; }
+
+.submit-btn {
+  width: 100%; padding: 12px;
+  background: #2c3e6b; color: #fff;
+  border: none; border-radius: 8px; font-size: 1em; font-weight: 600;
+  cursor: pointer; margin-top: 22px; transition: background 0.15s;
+}
+.submit-btn:hover { background: #1a2744; }
+.submit-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+.back-link { font-size: 0.82em; margin-bottom: 16px; }
+.back-link a { color: var(--ink-light); text-decoration: none; }
+.back-link a:hover { color: var(--accent); }
+
+.generating-status {
+  display: none; text-align: center; padding: 16px;
+  background: #fff8e1; border-radius: 8px; margin-top: 16px;
+  font-size: 0.9em; color: #8d6e00;
+}
+.generating-status.success { background: #e8f5e9; color: #2e7d32; }
+.generating-status.failed { background: #fef2f2; color: #991b1b; }
+
+.profile-note {
+  background: var(--card-bg); border: 1px solid var(--card-border);
+  border-radius: 8px; padding: 10px 14px; margin-bottom: 16px;
+  font-size: 0.82em; color: var(--ink-light); line-height: 1.6;
+}
+.profile-note strong { color: var(--ink); }
+</style>
+</head>
+<body>
+
+<div class="dash-header">
+  <div class="brand">🏠 AI Teacher</div>
+  <div class="nav-links">
+    <a href="/">首页</a>
+    <a href="/generate/exam">期末冲刺</a>
+    <a href="/generate/quick" class="active">快速学习</a>
+    <a href="/profile">画像</a>
+    <a href="/history">历史</a>
+  </div>
+</div>
+<hr class="dash-divider">
+
+<div class="back-link"><a href="/">← 返回首页</a></div>
+<div class="page-title">🚀 快速学习</div>
+<div class="page-desc">
+  输入一个技术名词，系统自动穷举完整知识体系并生成定制化学习手册。<br>
+  你不需要知道该问什么——我们替你问完。
+</div>
+
+{% if profile and profile.get("known") %}
+<div class="profile-note">
+  💡 当前画像：熟悉 <strong>{{ profile.known[:5] | join('、') }}</strong>
+  {% if profile.get("confused") %}
+  · 困惑 <strong>{{ profile.confused[:3] | join('、') }}</strong>
+  {% endif %}
+  —— 生成时会根据这些信息自动定制内容。
+</div>
+{% endif %}
+
+<div class="form-group">
+  <label>技术主题 *</label>
+  <div class="hint">你想学什么？如：FastAPI、Flutter、Redis、Docker、gRPC</div>
+  <input type="text" id="topic" placeholder="如：FastAPI" required autofocus>
+</div>
+
+<div class="form-group">
+  <label>学习目标（建议填写）</label>
+  <div class="hint">
+    同样的技术名，不同目标生成的内容完全不同。<br>
+    例：FastAPI + "能独立开发 RESTful API" vs "理解异步原理"——前者跳过底层细节，后者深入 ASGI。
+  </div>
+  <input type="text" id="goal" placeholder="如：能独立开发一个 RESTful API 后端">
+</div>
+
+<div class="form-group">
+  <label>深度偏好</label>
+  <select id="depth">
+    <option value="practical">会用就行 —— 关注实操，快速上手</option>
+    <option value="balanced" selected>适度深入 —— 实操 + 核心原理兼顾</option>
+    <option value="principle">搞懂原理 —— 深入底层机制和设计思想</option>
+  </select>
+</div>
+
+<div class="form-group">
+  <label>时间预算（可选）</label>
+  <div class="hint">帮助控制生成内容的量，如 "2周，每天2小时"</div>
+  <input type="text" id="time-budget" placeholder="如：2周，每天2小时">
+</div>
+
+<div class="form-group">
+  <label>参考链接（可选，每行一个）</label>
+  <div class="hint">有官方文档或好文章链接？贴在这里，优先级最高</div>
+  <textarea id="materials" placeholder="https://fastapi.tiangolo.com/&#10;https://..."></textarea>
+</div>
+
+<button class="submit-btn" id="submit-btn" onclick="startGenerate()">开始生成</button>
+<div class="generating-status" id="status"></div>
+
+<script>
+async function startGenerate() {
+  const topic = document.getElementById('topic').value.trim();
+  if (!topic) { alert('请填写技术主题'); return; }
+
+  const btn = document.getElementById('submit-btn');
+  btn.disabled = true;
+  btn.textContent = '正在提交...';
+
+  const statusEl = document.getElementById('status');
+  statusEl.style.display = 'block';
+  statusEl.className = 'generating-status';
+  statusEl.textContent = '⏳ 正在提交生成请求...';
+
+  const materials = document.getElementById('materials').value.trim()
+    .split('\n').filter(line => line.trim());
+
+  const data = {
+    topic: topic,
+    goal: document.getElementById('goal').value.trim(),
+    depth: document.getElementById('depth').value,
+    time_budget: document.getElementById('time-budget').value.trim(),
+    materials: materials,
+  };
+
+  try {
+    const resp = await fetch('/api/generate/quick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    const result = await resp.json();
+
+    if (result.ok) {
+      statusEl.textContent = '⏳ 正在生成知识地图和学习手册...';
+      statusEl.className = 'generating-status';
+      // 开始轮询状态
+      pollStatus(result.history_id, statusEl, btn);
+    } else {
+      statusEl.textContent = '❌ 提交失败：' + (result.error || '未知错误');
+      statusEl.className = 'generating-status failed';
+      btn.disabled = false;
+      btn.textContent = '重试';
+    }
+  } catch(e) {
+    statusEl.textContent = '❌ 请求失败：' + e.message;
+    statusEl.className = 'generating-status failed';
+    btn.disabled = false;
+    btn.textContent = '重试';
+  }
+}
+
+var pollTimer = null;
+var pollCount = 0;
+var MAX_POLL = 120; // 最多轮询 10 分钟
+
+function pollStatus(historyId, statusEl, btn) {
+  pollCount++;
+  if (pollCount > MAX_POLL) {
+    statusEl.textContent = '生成超时，请稍后在首页"已生成的内容"中查看。';
+    statusEl.className = 'generating-status';
+    btn.disabled = false;
+    btn.textContent = '重新生成';
+    return;
+  }
+
+  pollTimer = setTimeout(async function() {
+    try {
+      var resp = await fetch('/api/history/' + historyId + '/status');
+      var data = await resp.json();
+
+      if (data.status === 'done') {
+        statusEl.innerHTML = '✅ 生成完成！<br><a href="/output/' +
+          (data.html_path || '').replace('output/', '').replace('output\\\\', '') +
+          '" target="_blank" style="color:var(--accent);font-weight:700;">📖 打开学习手册</a>' +
+          '<br><span style="font-size:0.8em;">（也可在<a href="/">首页</a>查看所有已生成内容）</span>';
+        statusEl.className = 'generating-status success';
+        btn.disabled = false;
+        btn.textContent = '再生成一份';
+      } else if (data.status === 'failed') {
+        statusEl.textContent = '❌ 生成失败：' + (data.error_msg || '未知错误');
+        statusEl.className = 'generating-status failed';
+        btn.disabled = false;
+        btn.textContent = '重试';
+      } else {
+        // 还在生成中
+        var dots = '.'.repeat((pollCount % 3) + 1);
+        statusEl.textContent = '⏳ 正在生成中' + dots + '（通常需要 1-3 分钟）';
+        pollStatus(historyId, statusEl, btn);
+      }
+    } catch(e) {
+      pollStatus(historyId, statusEl, btn); // 出错继续轮询
+    }
+  }, 5000);
+}
+</script>
+
+</body>
+</html>

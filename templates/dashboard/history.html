@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>历史记录 · AI Teacher</title>
+<style>
+{{ inline_css | safe }}
+body { max-width: 780px; margin: auto; padding: 20px 16px 60px; }
+.dash-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 8px 0; margin-bottom: 8px;
+}
+.dash-header .brand { font-size: 1.3em; font-weight: 700; color: #1a1a2e; }
+.dash-header .nav-links { display: flex; gap: 16px; font-size: 0.85em; }
+.dash-header .nav-links a {
+  color: var(--ink-light); text-decoration: none;
+  padding: 4px 0; border-bottom: 2px solid transparent; transition: all 0.15s;
+}
+.dash-header .nav-links a:hover, .dash-header .nav-links a.active {
+  color: var(--accent); border-bottom-color: var(--accent);
+}
+.dash-divider { border: none; border-top: 2px solid var(--divider); margin: 0 0 24px 0; }
+
+.page-title { font-size: 1.2em; font-weight: 700; margin-bottom: 4px; }
+.page-desc { font-size: 0.85em; color: var(--ink-light); margin-bottom: 20px; }
+
+.back-link { font-size: 0.82em; margin-bottom: 16px; }
+.back-link a { color: var(--ink-light); text-decoration: none; }
+.back-link a:hover { color: var(--accent); }
+
+.history-table {
+  width: 100%;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.history-table .row {
+  display: grid;
+  grid-template-columns: 100px 85px 1fr 80px 100px;
+  gap: 8px;
+  padding: 10px 16px;
+  align-items: center;
+  font-size: 0.87em;
+  border-bottom: 1px solid var(--divider);
+}
+.history-table .row:last-child { border-bottom: none; }
+.history-table .header-row {
+  background: #f8fafc;
+  font-weight: 700;
+  color: var(--ink-light);
+  font-size: 0.82em;
+}
+@media (max-width: 600px) {
+  .history-table .row {
+    grid-template-columns: 80px 70px 1fr 60px;
+  }
+  .history-table .row .col-cost { display: none; }
+}
+
+.mode-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 3px;
+  font-size: 0.78em;
+  font-weight: 600;
+}
+.mode-exam { background: #dbeafe; color: #1e40af; }
+.mode-quick { background: #d1fae5; color: #065f46; }
+
+.status-badge {
+  font-size: 0.82em;
+}
+.status-done { color: #22c55e; }
+.status-pending { color: #f59e0b; }
+.status-running { color: #3b82f6; }
+.status-failed { color: #ef4444; }
+
+.row .action-links a {
+  color: var(--accent);
+  text-decoration: none;
+  font-size: 0.85em;
+  margin-right: 8px;
+}
+.row .action-links a.danger { color: #ef4444; }
+.row .action-links a:hover { text-decoration: underline; }
+
+.empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--ink-light);
+  font-size: 0.9em;
+}
+</style>
+</head>
+<body>
+
+<div class="dash-header">
+  <div class="brand">🏠 AI Teacher</div>
+  <div class="nav-links">
+    <a href="/">首页</a>
+    <a href="/generate/exam">期末冲刺</a>
+    <a href="/generate/quick">快速学习</a>
+    <a href="/profile">画像</a>
+    <a href="/history" class="active">历史</a>
+  </div>
+</div>
+<hr class="dash-divider">
+
+<div class="back-link"><a href="/">← 返回首页</a></div>
+<div class="page-title">📦 已生成的内容</div>
+<div class="page-desc">共 {{ history | length }} 条记录</div>
+
+{% if history %}
+<div class="history-table">
+  <div class="row header-row">
+    <div>日期</div>
+    <div>类型</div>
+    <div>主题</div>
+    <div>状态</div>
+    <div class="col-cost">操作</div>
+  </div>
+  {% for h in history %}
+  <div class="row">
+    <div style="font-size:0.82em;color:var(--ink-light);">
+      {{ h.created_at[:16] if h.created_at else '?' }}
+    </div>
+    <div>
+      {% if h.mode == 'exam_sprint' %}
+        <span class="mode-badge mode-exam">期末冲刺</span>
+      {% else %}
+        <span class="mode-badge mode-quick">快速学习</span>
+      {% endif %}
+    </div>
+    <div>
+      {{ h.topic }}
+      {% if h.get('extra_info') %}
+        <div style="font-size:0.75em;color:var(--ink-light);">{{ h.extra_info }}</div>
+      {% endif %}
+    </div>
+    <div>
+      {% if h.status == 'done' %}
+        <span class="status-badge status-done">✓ 已完成</span>
+      {% elif h.status == 'pending' or h.status == 'running' %}
+        <span class="status-badge status-pending">⏳ 生成中</span>
+      {% elif h.status == 'failed' %}
+        <span class="status-badge status-failed" title="{{ h.error_msg or '' }}">✗ 失败</span>
+      {% else %}
+        <span class="status-badge">{{ h.status }}</span>
+      {% endif %}
+    </div>
+    <div class="action-links col-cost">
+      {% if h.html_path %}
+        <a href="/output/{{ h.html_path | replace('output/', '') | replace('output\\', '') }}" target="_blank">打开</a>
+      {% endif %}
+      <a href="javascript:void(0)" class="danger" onclick="deleteHistory({{ h.id }})">删除</a>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty">
+  还没有生成过内容。<br>
+  <a href="/" style="color:var(--accent);">返回首页</a> 开始使用吧 👆
+</div>
+{% endif %}
+
+<script>
+async function deleteHistory(id) {
+  if (!confirm('确定删除这条记录？（不会删除已生成的文件）')) return;
+  try {
+    await fetch('/api/history/' + id, { method: 'DELETE' });
+    location.reload();
+  } catch(e) {
+    alert('删除失败：' + e.message);
+  }
+}
+</script>
+
+</body>
+</html>

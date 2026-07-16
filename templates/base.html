@@ -591,6 +591,67 @@ mark.ai-hl-has-note {
   padding: 0 6px;
   flex-shrink: 0;
 }
+.kc-title-text {
+  flex: 1;
+}
+.kc-fav-btn {
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s;
+  color: #94a3b8;
+}
+.kc-fav-btn:hover {
+  background: #dbeafe;
+  color: #f59e0b;
+}
+.kc-fav-btn.faved {
+  color: #f59e0b;
+}
+/* 收藏筛选条 */
+.fav-filter-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius);
+  font-size: 0.88em;
+}
+.fav-filter-btn {
+  padding: 4px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: 16px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 0.9em;
+  font-weight: 600;
+  transition: all 0.15s;
+  color: var(--ink-light);
+}
+.fav-filter-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+.fav-filter-btn:hover:not(.active) {
+  background: var(--paper-dark);
+}
+.fav-count {
+  color: var(--ink-light);
+  font-size: 0.85em;
+  margin-left: auto;
+}
 .kc-body {
   padding: 14px 16px;
   font-size: 0.9em;
@@ -855,6 +916,11 @@ async function renderMermaid() {
     var el = els[i];
     var code = el.textContent.trim();
     if (!code) continue;
+    // 预处理：把引号内的 [ ] 替换为全角括号，防止 Mermaid 将其误解析为节点语法
+    // 例如 A["MOV AX,[BX]"] → A["MOV AX,［BX］"]，对 SVG 渲染效果一致
+    code = code.replace(/"[^"]+"/g, function(m) {
+      return m.replace(/\[/g, '［').replace(/\]/g, '］');
+    });
     try {
       var id = 'msvg_' + (++_mermaidId);
       var result = await mermaid.render(id, code);
